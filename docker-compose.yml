@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: inventory-oracle
+    restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: "YourPassword123"
+      APP_USER: "inventory_user"
+      APP_USER_PASSWORD: "YourPassword123"
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    networks:
+      - inventory-network
+
+  backend:
+    container_name: inventory-backend
+    build:
+      context: ./be-net
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - oracle
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__OracleConnection: "Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=YourPassword123;"
+      Jwt__Key: "INVENTORY_NET_ULTRA_SECURE_JWT_SECRET_KEY_2026_TEST_KEY_MUST_BE_LONG!"
+      Jwt__Issuer: "InventoryNetApi"
+      Jwt__Audience: "InventoryNetClient"
+    ports:
+      - "8080:8080"
+    networks:
+      - inventory-network
+
+  frontend:
+    container_name: inventory-frontend
+    build:
+      context: ./fe-react
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: "production"
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
+    ports:
+      - "3000:3000"
+    networks:
+      - inventory-network
+
+volumes:
+  oracle_data:
+
+networks:
+  inventory-network:
+    driver: bridge
