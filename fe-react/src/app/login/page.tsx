@@ -4,9 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Boxes, Lock, User, ArrowRight, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { Button, Card, Input } from "@/components/ui"
 import { authService } from "@/features/auth/services/auth.service"
 import { useAuthStore } from "@/features/auth/store/auth.store"
 
@@ -98,7 +96,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="mt-2 w-full gap-2 rounded-xl bg-indigo-600 py-5 text-sm font-semibold hover:bg-indigo-700"
+              className="mt-2 w-full gap-2 rounded-xl py-5 text-sm font-semibold"
             >
               {loading ? (
                 <>

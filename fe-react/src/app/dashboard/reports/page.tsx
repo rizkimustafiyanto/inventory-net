@@ -11,11 +11,10 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { toast } from "sonner"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { reportService } from "@/features/reports/services/report.service"
+import { DashboardShell } from "@/components/layout"
 import {
+  Button,
+  Card,
   Table,
   TableHeader,
   TableBody,
@@ -23,7 +22,8 @@ import {
   TableRow,
   TableCell,
   TableEmpty,
-} from "@/components/ui/table"
+} from "@/components/ui"
+import { reportService } from "@/features/reports/services/report.service"
 import type { StockReport } from "@/types"
 
 export default function ReportsPage() {
@@ -213,19 +213,19 @@ export default function ReportsPage() {
         </div>
 
         {/* Table */}
-        <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
           <Table minWidth="950px" wrapHeader={false} wrapBody={false}>
             <TableHeader>
               <TableRow>
-                <TableHead wrap={false}>Tanggal</TableHead>
-                <TableHead wrap={false}>SKU & Produk</TableHead>
-                <TableHead wrap={false}>Kategori</TableHead>
-                <TableHead wrap={false} className="text-center">Awal</TableHead>
-                <TableHead wrap={false} className="text-center">Masuk (+)</TableHead>
-                <TableHead wrap={false} className="text-center">Keluar (-)</TableHead>
-                <TableHead wrap={false} className="text-center">Akhir</TableHead>
-                <TableHead wrap={false} className="text-right">Harga Satuan</TableHead>
-                <TableHead wrap={false} className="text-right">Nilai Aset</TableHead>
+                <TableHead>Tanggal</TableHead>
+                <TableHead>SKU & Produk</TableHead>
+                <TableHead>Kategori</TableHead>
+                <TableHead className="text-center">Awal</TableHead>
+                <TableHead className="text-center">Masuk (+)</TableHead>
+                <TableHead className="text-center">Keluar (-)</TableHead>
+                <TableHead className="text-center">Akhir</TableHead>
+                <TableHead className="text-right">Harga Satuan</TableHead>
+                <TableHead className="text-right">Nilai Aset</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -234,14 +234,14 @@ export default function ReportsPage() {
               ) : (
                 reports.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell wrap={false} className="text-xs text-slate-500">
+                    <TableCell wrap={false} className="text-xs text-muted-foreground">
                       {new Date(r.reportDate).toLocaleDateString("id-ID")}
                     </TableCell>
                     <TableCell wrap={true} className="max-w-[220px]">
-                      <div className="font-semibold text-slate-900 dark:text-white">{r.productName}</div>
-                      <div className="text-xs font-mono text-slate-400">{r.productSku}</div>
+                      <div className="font-semibold text-foreground">{r.productName}</div>
+                      <div className="text-xs font-mono text-muted-foreground">{r.productSku}</div>
                     </TableCell>
-                    <TableCell wrap={false} className="text-slate-600 dark:text-slate-300">
+                    <TableCell wrap={false} className="text-muted-foreground">
                       {r.categoryName || "—"}
                     </TableCell>
                     <TableCell wrap={false} className="text-center font-mono text-xs text-slate-500">

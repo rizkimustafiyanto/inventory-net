@@ -13,8 +13,7 @@ import {
   PackageCheck,
   TrendingUp,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Button, Card } from "@/components/ui"
 
 export default function LandingPage() {
   return (
@@ -58,7 +57,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-3">
             <Link href="/login">
-              <Button className="gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700">
+              <Button className="gap-2 rounded-xl">
                 <span>Masuk ke Sistem</span>
                 <ArrowRight className="size-4" />
               </Button>

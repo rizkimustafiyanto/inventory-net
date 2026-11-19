@@ -3,13 +3,12 @@
 import { useEffect, useState, useCallback } from "react"
 import { Layers, Plus, Trash2, RefreshCw, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { categoryService } from "@/features/categories/services/category.service"
-import { useAuthStore } from "@/features/auth/store/auth.store"
+import { DashboardShell } from "@/components/layout"
 import {
+  Button,
+  Card,
+  FormField,
+  Input,
   Table,
   TableHeader,
   TableBody,
@@ -17,7 +16,9 @@ import {
   TableRow,
   TableCell,
   TableEmpty,
-} from "@/components/ui/table"
+} from "@/components/ui"
+import { categoryService } from "@/features/categories/services/category.service"
+import { useAuthStore } from "@/features/auth/store/auth.store"
 import type { Category, CreateCategoryPayload } from "@/types"
 
 export default function CategoriesPage() {
@@ -91,40 +92,36 @@ export default function CategoriesPage() {
       <div className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         {/* Tambah Kategori */}
         <div className="w-full">
-          <Card className="rounded-2xl border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <Card className="rounded-2xl border-border bg-card p-6 shadow-xs">
             <div className="mb-4 flex items-center gap-2">
-              <Layers className="size-5 text-indigo-600" />
-              <h3 className="font-bold text-slate-900 dark:text-white">Tambah Kategori Baru</h3>
+              <Layers className="size-5 text-primary" />
+              <h3 className="font-bold text-foreground">Tambah Kategori Baru</h3>
             </div>
 
             <form onSubmit={handleCreate} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Nama Kategori *</label>
+              <FormField label="Nama Kategori" required>
                 <Input
                   placeholder="Contoh: Alat Kesehatan / Perkakas"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="rounded-xl"
                   required
                 />
-              </div>
+              </FormField>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Deskripsi</label>
+              <FormField label="Deskripsi (Opsional)">
                 <Input
                   placeholder="Keterangan kategori"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="rounded-xl"
                 />
-              </div>
+              </FormField>
 
               <Button
                 type="submit"
-                disabled={submitting}
-                className="w-full rounded-xl bg-indigo-600 py-5 font-semibold hover:bg-indigo-700"
+                loading={submitting}
+                className="w-full py-5 font-semibold"
               >
-                {submitting ? <Loader2 className="size-4 animate-spin" /> : "Simpan Kategori"}
+                Simpan Kategori
               </Button>
             </form>
           </Card>
@@ -132,18 +129,17 @@ export default function CategoriesPage() {
 
         {/* Daftar Kategori */}
         <div className="min-w-0 w-full">
-          <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800">
-              <h3 className="font-semibold text-slate-900 dark:text-white">Daftar Kategori ({categories.length})</h3>
+          <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
+            <div className="flex items-center justify-between border-b border-border p-4">
+              <h3 className="font-semibold text-foreground">Daftar Kategori ({categories.length})</h3>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 onClick={loadData}
                 disabled={loading}
-                className="text-slate-500"
-              >
-                <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-              </Button>
+                title="Segarkan Data"
+                icon={<RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />}
+              />
             </div>
 
             <Table minWidth="650px" wrapHeader={false} wrapBody={false}>
@@ -161,10 +157,10 @@ export default function CategoriesPage() {
                 ) : (
                   categories.map((c) => (
                     <TableRow key={c.id}>
-                      <TableCell wrap={false} className="font-semibold text-slate-900 dark:text-white">{c.name}</TableCell>
-                      <TableCell wrap={true} className="max-w-[300px] text-slate-500">{c.description || "—"}</TableCell>
+                      <TableCell wrap={false} className="font-semibold text-foreground">{c.name}</TableCell>
+                      <TableCell wrap={true} className="max-w-[300px] text-muted-foreground">{c.description || "—"}</TableCell>
                       <TableCell wrap={false}>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        <span className="rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground">
                           {c.productCount ?? 0} Produk
                         </span>
                       </TableCell>
@@ -173,15 +169,14 @@ export default function CategoriesPage() {
                           {role === "Admin" ? (
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon-sm"
                               onClick={() => handleDelete(c.id, c.name)}
-                              className="size-8 p-0 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                              className="text-rose-500 hover:bg-rose-50 hover:text-rose-700"
                               title="Hapus Kategori (Admin)"
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
+                              icon={<Trash2 className="size-4" />}
+                            />
                           ) : (
-                            <div className="flex size-8 items-center justify-center text-xs text-slate-400">
+                            <div className="flex size-8 items-center justify-center text-xs text-muted-foreground">
                               —
                             </div>
                           )}

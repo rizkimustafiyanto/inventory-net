@@ -12,14 +12,14 @@ import {
   XCircle,
 } from "lucide-react"
 import { toast } from "sonner"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { useAuthStore } from "@/features/auth/store/auth.store"
-import { userService } from "@/features/users/services/user.service"
+import { DashboardShell } from "@/components/layout"
 import {
+  Badge,
+  Button,
+  Card,
+  FormField,
+  Input,
+  NativeSelect,
   Table,
   TableHeader,
   TableBody,
@@ -27,7 +27,9 @@ import {
   TableRow,
   TableCell,
   TableEmpty,
-} from "@/components/ui/table"
+} from "@/components/ui"
+import { useAuthStore } from "@/features/auth/store/auth.store"
+import { userService } from "@/features/users/services/user.service"
 import type { User, CreateUserPayload } from "@/types"
 
 export default function UsersPage() {
@@ -172,26 +174,24 @@ export default function UsersPage() {
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              size="sm"
+              size="icon-sm"
               onClick={loadData}
               disabled={loading}
-              className="rounded-xl text-slate-500"
-            >
-              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-            </Button>
+              title="Segarkan Data"
+              icon={<RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />}
+            />
             <Button
               size="sm"
               onClick={() => setIsModalOpen(true)}
-              className="gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700"
+              leftIcon={<UserPlus className="size-4" />}
             >
-              <UserPlus className="size-4" />
-              <span>Tambah Pengguna</span>
+              Tambah Pengguna
             </Button>
           </div>
         </div>
 
         {/* Users Table */}
-        <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
           <Table minWidth="750px">
             <TableHeader>
               <TableRow>
@@ -210,30 +210,30 @@ export default function UsersPage() {
                 users.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell wrap={true} className="max-w-[200px]">
-                      <div className="font-semibold text-slate-900 dark:text-white">
+                      <div className="font-semibold text-foreground">
                         {u.fullName || u.username}
                       </div>
-                      <div className="text-xs font-mono text-slate-400">@{u.username}</div>
+                      <div className="text-xs font-mono text-muted-foreground">@{u.username}</div>
                     </TableCell>
-                    <TableCell wrap={false} className="text-slate-600 dark:text-slate-300">
+                    <TableCell wrap={false} className="text-muted-foreground">
                       {u.email}
                     </TableCell>
                     <TableCell wrap={false}>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      <Badge
+                        variant={
                           u.roleName === "Admin"
-                            ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                            ? "brand"
                             : u.roleName === "Manager"
-                            ? "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-                            : "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300"
-                        }`}
+                            ? "purple"
+                            : "info"
+                        }
                       >
                         {u.roleName === "Admin"
                           ? "Super Admin"
                           : u.roleName === "Manager"
                           ? "Supervisor"
                           : "Staff Gudang"}
-                      </span>
+                      </Badge>
                     </TableCell>
                     <TableCell wrap={false}>
                       <button
@@ -248,14 +248,14 @@ export default function UsersPage() {
                             Aktif
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
                             <XCircle className="size-3.5" />
                             Nonaktif
                           </span>
                         )}
                       </button>
                     </TableCell>
-                    <TableCell wrap={false} className="text-xs text-slate-400">
+                    <TableCell wrap={false} className="text-xs text-muted-foreground">
                       {new Date(u.createdAt).toLocaleDateString("id-ID")}
                     </TableCell>
                     <TableCell wrap={false} className="text-right">
@@ -263,15 +263,14 @@ export default function UsersPage() {
                         {u.username !== "admin" ? (
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon-sm"
                             onClick={() => handleDelete(u)}
-                            className="size-8 p-0 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                            className="text-rose-500 hover:bg-rose-50 hover:text-rose-700"
                             title="Hapus Pengguna"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
+                            icon={<Trash2 className="size-4" />}
+                          />
                         ) : (
-                          <div className="flex size-8 items-center justify-center text-xs text-slate-400">
+                          <div className="flex size-8 items-center justify-center text-xs text-muted-foreground">
                             —
                           </div>
                         )}
@@ -287,51 +286,44 @@ export default function UsersPage() {
         {/* Modal Tambah User */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-            <Card className="w-full max-w-md rounded-3xl border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <Card className="w-full max-w-md rounded-3xl border-border bg-card p-6 shadow-modal">
               <div className="mb-5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <UserPlus className="size-5 text-indigo-600" />
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  <UserPlus className="size-5 text-primary" />
+                  <h3 className="text-lg font-bold text-foreground">
                     Tambah Pengguna Baru
                   </h3>
                 </div>
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  className="text-muted-foreground"
                 >
                   ✕
-                </button>
+                </Button>
               </div>
 
               <form onSubmit={handleCreate} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Username *
-                  </label>
+                <FormField label="Username" required>
                   <Input
                     placeholder="Contoh: staff_gudang1"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Nama Lengkap *
-                  </label>
+                <FormField label="Nama Lengkap" required>
                   <Input
                     placeholder="Contoh: Budi Santoso"
                     value={form.fullName}
                     onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Email *
-                  </label>
+                <FormField label="Email" required>
                   <Input
                     type="email"
                     placeholder="budi@inventory.local"
@@ -339,12 +331,9 @@ export default function UsersPage() {
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Password *
-                  </label>
+                <FormField label="Password" required>
                   <Input
                     type="password"
                     placeholder="Minimal 6 karakter"
@@ -352,43 +341,33 @@ export default function UsersPage() {
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Peran (Role) *
-                  </label>
-                  <select
+                <FormField label="Peran (Role)" required>
+                  <NativeSelect
                     value={form.role}
                     onChange={(e) => setForm({ ...form, role: Number(e.target.value) })}
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
                     required
                   >
                     <option value={2}>Staff Gudang (Operasional Mutasi)</option>
                     <option value={3}>Supervisor / Manager (Laporan & Monitoring)</option>
                     <option value={1}>Administrator (Super Admin)</option>
-                  </select>
-                </div>
+                  </NativeSelect>
+                </FormField>
 
                 <div className="mt-6 flex justify-end gap-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setIsModalOpen(false)}
-                    className="rounded-xl"
                   >
                     Batal
                   </Button>
                   <Button
                     type="submit"
-                    disabled={submitting}
-                    className="rounded-xl bg-indigo-600 hover:bg-indigo-700"
+                    loading={submitting}
                   >
-                    {submitting ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      "Simpan Pengguna"
-                    )}
+                    Simpan Pengguna
                   </Button>
                 </div>
               </form>

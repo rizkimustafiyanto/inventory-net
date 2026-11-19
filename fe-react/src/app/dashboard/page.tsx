@@ -14,10 +14,8 @@ import {
   ArrowLeftRight,
 } from "lucide-react"
 import { toast } from "sonner"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { DashboardShell } from "@/components/layout"
+import { Card, Button, Badge } from "@/components/ui"
 import { stockService } from "@/features/stocks/services/stock.service"
 import { productService } from "@/features/products/services/product.service"
 import type { StockSummary, StockMovement, Product } from "@/types"
@@ -122,7 +120,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Aksi Cepat:</span>
             <Link href="/dashboard/stocks">
-              <Button size="sm" className="gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700">
+              <Button size="sm" className="gap-1.5 rounded-xl">
                 <ArrowLeftRight className="size-3.5" />
                 Catat Mutasi Stok
               </Button>

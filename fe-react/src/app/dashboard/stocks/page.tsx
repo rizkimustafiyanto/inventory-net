@@ -12,15 +12,15 @@ import {
   FileText,
 } from "lucide-react"
 import { toast } from "sonner"
-import { DashboardShell } from "@/components/layout/dashboard-shell"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { stockService } from "@/features/stocks/services/stock.service"
-import { productService } from "@/features/products/services/product.service"
-import { PaginationControl } from "@/components/shared/pagination-control"
+import { DashboardShell } from "@/components/layout"
+import { PaginationControl } from "@/components/shared"
 import {
+  Badge,
+  Button,
+  Card,
+  FormField,
+  Input,
+  NativeSelect,
   Table,
   TableHeader,
   TableBody,
@@ -28,7 +28,9 @@ import {
   TableRow,
   TableCell,
   TableEmpty,
-} from "@/components/ui/table"
+} from "@/components/ui"
+import { stockService } from "@/features/stocks/services/stock.service"
+import { productService } from "@/features/products/services/product.service"
 import type { StockMovement, StockMovementType, Product, PaginationMeta } from "@/types"
 
 export default function StockMovementsPage() {
@@ -38,6 +40,7 @@ export default function StockMovementsPage() {
 
   // Pagination state
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
 
   // Form state
@@ -52,7 +55,7 @@ export default function StockMovementsPage() {
     try {
       setLoading(true)
       const [movRes, prodRes] = await Promise.all([
-        stockService.getMovements(undefined, page, 10),
+        stockService.getMovements(undefined, page, pageSize),
         productService.getPaged({ pageSize: 100 }),
       ])
 
@@ -72,7 +75,7 @@ export default function StockMovementsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, selectedProductId])
+  }, [page, pageSize, selectedProductId])
 
   useEffect(() => {
     loadData()
@@ -143,12 +146,10 @@ export default function StockMovementsPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Pilih Produk *</label>
-              <select
+            <FormField label="Pilih Produk" required>
+              <NativeSelect
                 value={selectedProductId}
                 onChange={(e) => setSelectedProductId(Number(e.target.value))}
-                className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
                 required
               >
                 {products.map((p) => (
@@ -156,102 +157,90 @@ export default function StockMovementsPage() {
                     [{p.sku}] {p.name} (Sisa: {p.stockQuantity})
                   </option>
                 ))}
-              </select>
-            </div>
+              </NativeSelect>
+            </FormField>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Tipe Pergerakan *</label>
+            <FormField label="Tipe Pergerakan" required>
               <div className="grid grid-cols-3 gap-2">
-                <button
+                <Button
                   type="button"
+                  variant={movementType === 1 ? "success" : "outline"}
+                  size="sm"
                   onClick={() => setMovementType(1)}
-                  className={`rounded-xl border py-2 text-xs font-semibold transition-all ${
-                    movementType === 1
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-800"
-                  }`}
+                  className="w-full text-xs"
                 >
                   + Masuk
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant={movementType === 2 ? "destructive" : "outline"}
+                  size="sm"
                   onClick={() => setMovementType(2)}
-                  className={`rounded-xl border py-2 text-xs font-semibold transition-all ${
-                    movementType === 2
-                      ? "border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-950/40"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-800"
-                  }`}
+                  className="w-full text-xs"
                 >
                   - Keluar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant={movementType === 3 ? "default" : "outline"}
+                  size="sm"
                   onClick={() => setMovementType(3)}
-                  className={`rounded-xl border py-2 text-xs font-semibold transition-all ${
-                    movementType === 3
-                      ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/40"
-                      : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-800"
-                  }`}
+                  className="w-full text-xs"
                 >
                   ⚙ Koreksi
-                </button>
+                </Button>
               </div>
-            </div>
+            </FormField>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {movementType === 3 ? "Stok Aktual Hasil Koreksi *" : "Jumlah / Kuantitas *"}
-              </label>
+            <FormField
+              label={movementType === 3 ? "Stok Aktual Hasil Koreksi" : "Jumlah / Kuantitas"}
+              required
+            >
               <Input
                 type="number"
                 min={0}
                 value={quantity}
                 onChange={(e) => setQuantity(Number(e.target.value))}
-                className="rounded-xl"
                 required
               />
-            </div>
+            </FormField>
 
             {/* Live preview */}
             {selectedProduct && (
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs dark:border-slate-800 dark:bg-slate-800/40">
-                <div className="flex justify-between text-slate-500">
+              <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs">
+                <div className="flex justify-between text-muted-foreground">
                   <span>Stok Saat Ini:</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedProduct.stockQuantity}</span>
+                  <span className="font-semibold text-foreground">{selectedProduct.stockQuantity}</span>
                 </div>
-                <div className="mt-1 flex justify-between text-slate-500">
+                <div className="mt-1 flex justify-between text-muted-foreground">
                   <span>Estimasi Stok Baru:</span>
-                  <span className="font-bold text-indigo-600 dark:text-indigo-400">{calculatePreviewStock()} unit</span>
+                  <span className="font-bold text-primary">{calculatePreviewStock()} unit</span>
                 </div>
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Alasan / Keterangan</label>
+            <FormField label="Alasan / Keterangan">
               <Input
                 placeholder="Contoh: Penerimaan Supplier / Pembelian"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="rounded-xl"
               />
-            </div>
+            </FormField>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">No. Referensi / PO / Faktur</label>
+            <FormField label="No. Referensi / PO / Faktur">
               <Input
                 placeholder="Contoh: PO-2026-008"
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
-                className="rounded-xl"
               />
-            </div>
+            </FormField>
 
             <Button
               type="submit"
-              disabled={submitting}
-              className="w-full rounded-xl bg-indigo-600 py-5 font-semibold hover:bg-indigo-700"
+              loading={submitting}
+              className="w-full py-5 font-semibold"
             >
-              {submitting ? <Loader2 className="size-4 animate-spin" /> : "Simpan Mutasi"}
+              Simpan Mutasi
             </Button>
           </form>
         </Card>
@@ -259,18 +248,18 @@ export default function StockMovementsPage() {
 
       {/* Tabel Riwayat Mutasi */}
       <div className="min-w-0 w-full">
-        <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800">
+        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
+          <div className="flex items-center justify-between border-b border-border p-4">
             <div className="flex items-center gap-2">
-              <ArrowLeftRight className="size-4 text-slate-500" />
-              <h3 className="font-semibold text-slate-900 dark:text-white">Riwayat Mutasi Stok Gudang</h3>
+              <ArrowLeftRight className="size-4 text-muted-foreground" />
+              <h3 className="font-semibold text-foreground">Riwayat Mutasi Stok Gudang</h3>
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={loadData}
               disabled={loading}
-              className="text-slate-500"
+              className="text-muted-foreground"
             >
               <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
@@ -279,12 +268,12 @@ export default function StockMovementsPage() {
           <Table minWidth="800px" wrapHeader={false} wrapBody={false}>
             <TableHeader>
               <TableRow>
-                <TableHead wrap={false}>Produk</TableHead>
-                <TableHead wrap={false}>Tipe</TableHead>
-                <TableHead wrap={false}>Jumlah</TableHead>
-                <TableHead wrap={false}>Sebelum → Sesudah</TableHead>
-                <TableHead wrap={false}>Keterangan</TableHead>
-                <TableHead wrap={false}>Waktu</TableHead>
+                <TableHead>Produk</TableHead>
+                <TableHead>Tipe</TableHead>
+                <TableHead>Jumlah</TableHead>
+                <TableHead>Sebelum → Sesudah</TableHead>
+                <TableHead>Keterangan</TableHead>
+                <TableHead>Waktu</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -294,18 +283,18 @@ export default function StockMovementsPage() {
                 movements.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell wrap={true} className="max-w-[200px]">
-                      <div className="font-semibold text-slate-900 dark:text-white">{m.productName}</div>
-                      <div className="text-xs font-mono text-slate-400">{m.productSku}</div>
+                      <div className="font-semibold text-foreground">{m.productName}</div>
+                      <div className="text-xs font-mono text-muted-foreground">{m.productSku}</div>
                     </TableCell>
                     <TableCell wrap={false}>
                       <Badge
-                        variant={m.type === 1 ? "default" : m.type === 2 ? "destructive" : "secondary"}
+                        variant={m.type === 1 ? "success" : m.type === 2 ? "danger" : "info"}
                         className="text-xs"
                       >
                         {m.type === 1 ? "Masuk" : m.type === 2 ? "Keluar" : "Koreksi"}
                       </Badge>
                     </TableCell>
-                    <TableCell wrap={false} className="font-bold text-slate-900 dark:text-white">
+                    <TableCell wrap={false} className="font-bold text-foreground">
                       {m.type === 1 ? `+${m.quantity}` : m.type === 2 ? `-${m.quantity}` : m.quantity}
                     </TableCell>
                     <TableCell wrap={false} className="text-xs text-slate-500">
@@ -336,6 +325,10 @@ export default function StockMovementsPage() {
           <PaginationControl
             meta={meta}
             onPageChange={(p) => setPage(p)}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize)
+              setPage(1)
+            }}
             disabled={loading}
           />
         </Card>
