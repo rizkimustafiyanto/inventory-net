@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Inventory.Application.Common;
 using Inventory.Application.DTOs.Product;
 using Inventory.Application.Interfaces;
@@ -9,6 +10,9 @@ namespace Inventory.Application.Services;
 
 public class ProductService : IProductService
 {
+    private const int DefaultProductPageSize = 10;
+    private const int MaxProductPageSize = 100;
+
     private readonly IUnitOfWork _unitOfWork;
 
     public ProductService(IUnitOfWork unitOfWork)
@@ -16,7 +20,7 @@ public class ProductService : IProductService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<ApiResponse<PagedResult<ProductDto>>> GetPagedProductsAsync(
+    public async Task<ApiResponse<IReadOnlyList<ProductDto>>> GetPagedProductsAsync(
         int pageNumber = 1,
         int pageSize = 10,
         string? search = null,
@@ -24,50 +28,47 @@ public class ProductService : IProductService
         bool? lowStockOnly = null,
         CancellationToken cancellationToken = default)
     {
-        var allProducts = await _unitOfWork.Products.GetAllAsync(cancellationToken);
-        var categories = await _unitOfWork.Categories.GetAllAsync(cancellationToken);
-        var categoryMap = categories.ToDictionary(c => c.Id, c => c.Name);
+        // Enforce pagination boundaries and hard maximum limit
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = Math.Clamp(pageSize <= 0 ? DefaultProductPageSize : pageSize, 1, MaxProductPageSize);
 
-        var query = allProducts.AsEnumerable();
+        var searchClean = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLower();
+        var filterCategoryId = categoryId.HasValue && categoryId.Value > 0 ? categoryId.Value : (long?)null;
+        var filterLowStock = lowStockOnly == true;
 
-        if (!string.IsNullOrWhiteSpace(search))
+        Expression<Func<Product, bool>>? predicate = null;
+        if (searchClean != null || filterCategoryId != null || filterLowStock)
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(p => p.Name.ToLower().Contains(s) || p.Sku.ToLower().Contains(s));
+            predicate = p =>
+                (searchClean == null || p.Name.ToLower().Contains(searchClean) || p.Sku.ToLower().Contains(searchClean)) &&
+                (filterCategoryId == null || p.CategoryId == filterCategoryId.Value) &&
+                (!filterLowStock || p.StockQuantity <= p.MinStockLevel);
         }
 
-        if (categoryId.HasValue && categoryId.Value > 0)
+        var (items, totalCount) = await _unitOfWork.Products.GetPagedAsync(
+            predicate: predicate,
+            pageNumber: pageNumber,
+            pageSize: pageSize,
+            orderBy: q => q.OrderByDescending(p => p.CreatedAt),
+            cancellationToken: cancellationToken,
+            includes: p => p.Category!);
+
+        var dtos = items.Select(p => new ProductDto
         {
-            query = query.Where(p => p.CategoryId == categoryId.Value);
-        }
+            Id = p.Id,
+            Sku = p.Sku,
+            Name = p.Name,
+            Description = p.Description,
+            Price = p.Price,
+            StockQuantity = p.StockQuantity,
+            MinStockLevel = p.MinStockLevel,
+            CategoryId = p.CategoryId,
+            CategoryName = p.Category != null ? p.Category.Name : "General",
+            CreatedAt = p.CreatedAt
+        }).ToList();
 
-        if (lowStockOnly == true)
-        {
-            query = query.Where(p => p.StockQuantity <= p.MinStockLevel);
-        }
-
-        var totalCount = query.Count();
-        var items = query
-            .OrderByDescending(p => p.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .Select(p => new ProductDto
-            {
-                Id = p.Id,
-                Sku = p.Sku,
-                Name = p.Name,
-                Description = p.Description,
-                Price = p.Price,
-                StockQuantity = p.StockQuantity,
-                MinStockLevel = p.MinStockLevel,
-                CategoryId = p.CategoryId,
-                CategoryName = categoryMap.TryGetValue(p.CategoryId, out var cName) ? cName : "General",
-                CreatedAt = p.CreatedAt
-            })
-            .ToList();
-
-        var result = new PagedResult<ProductDto>(items, totalCount, pageNumber, pageSize);
-        return ApiResponse<PagedResult<ProductDto>>.Ok(result);
+        var result = new PagedResult<ProductDto>(dtos, totalCount, pageNumber, pageSize);
+        return ApiResponse<IReadOnlyList<ProductDto>>.Ok(result.Items, "Success", result.Meta);
     }
 
     public async Task<ApiResponse<ProductDto>> GetProductByIdAsync(long id, CancellationToken cancellationToken = default)

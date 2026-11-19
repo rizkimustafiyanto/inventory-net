@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Inventory.Application.Common;
 using Inventory.Application.DTOs.Stock;
 using Inventory.Application.Interfaces;
@@ -9,6 +10,9 @@ namespace Inventory.Application.Services;
 
 public class StockService : IStockService
 {
+    private const int DefaultMovementPageSize = 15;
+    private const int MaxMovementPageSize = 100;
+
     private readonly IUnitOfWork _unitOfWork;
 
     public StockService(IUnitOfWork unitOfWork)
@@ -97,69 +101,62 @@ public class StockService : IStockService
         return ApiResponse<StockMovementDto>.Ok(resultDto, "Stock movement recorded successfully");
     }
 
-    public async Task<ApiResponse<PagedResult<StockMovementDto>>> GetMovementsAsync(
+    public async Task<ApiResponse<IReadOnlyList<StockMovementDto>>> GetMovementsAsync(
         long? productId = null,
         int pageNumber = 1,
         int pageSize = 15,
         CancellationToken cancellationToken = default)
     {
-        var allMovements = await _unitOfWork.StockMovements.GetAllAsync(cancellationToken);
-        var products = await _unitOfWork.Products.GetAllAsync(cancellationToken);
-        var users = await _unitOfWork.Users.GetAllAsync(cancellationToken);
+        // Enforce pagination boundaries and hard maximum limit
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = Math.Clamp(pageSize <= 0 ? DefaultMovementPageSize : pageSize, 1, MaxMovementPageSize);
 
-        var productMap = products.ToDictionary(p => p.Id);
-        var userMap = users.ToDictionary(u => u.Id);
+        var filterProductId = productId.HasValue && productId.Value > 0 ? productId.Value : (long?)null;
+        Expression<Func<StockMovement, bool>>? predicate = filterProductId.HasValue
+            ? m => m.ProductId == filterProductId.Value
+            : null;
 
-        var query = allMovements.AsEnumerable();
+        var (items, totalCount) = await _unitOfWork.StockMovements.GetPagedAsync(
+            predicate: predicate,
+            pageNumber: pageNumber,
+            pageSize: pageSize,
+            orderBy: q => q.OrderByDescending(m => m.CreatedAt),
+            cancellationToken: cancellationToken,
+            includes: new Expression<Func<StockMovement, object>>[] { m => m.Product!, m => m.User! });
 
-        if (productId.HasValue && productId.Value > 0)
+        var dtos = items.Select(m => new StockMovementDto
         {
-            query = query.Where(m => m.ProductId == productId.Value);
-        }
+            Id = m.Id,
+            ProductId = m.ProductId,
+            ProductName = m.Product?.Name ?? "Unknown Product",
+            ProductSku = m.Product?.Sku ?? string.Empty,
+            Type = m.Type,
+            Quantity = m.Quantity,
+            StockBefore = m.StockBefore,
+            StockAfter = m.StockAfter,
+            Reason = m.Reason,
+            ReferenceNumber = m.ReferenceNumber,
+            UserName = m.User?.FullName ?? m.User?.Username ?? "System",
+            CreatedAt = m.CreatedAt
+        }).ToList();
 
-        var totalCount = query.Count();
-        var items = query
-            .OrderByDescending(m => m.CreatedAt)
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .Select(m =>
-            {
-                productMap.TryGetValue(m.ProductId, out var prod);
-                User? usr = null;
-                if (m.UserId.HasValue) userMap.TryGetValue(m.UserId.Value, out usr);
-
-                return new StockMovementDto
-                {
-                    Id = m.Id,
-                    ProductId = m.ProductId,
-                    ProductName = prod?.Name ?? "Unknown Product",
-                    ProductSku = prod?.Sku ?? string.Empty,
-                    Type = m.Type,
-                    Quantity = m.Quantity,
-                    StockBefore = m.StockBefore,
-                    StockAfter = m.StockAfter,
-                    Reason = m.Reason,
-                    ReferenceNumber = m.ReferenceNumber,
-                    UserName = usr?.FullName ?? usr?.Username ?? "System",
-                    CreatedAt = m.CreatedAt
-                };
-            })
-            .ToList();
-
-        var result = new PagedResult<StockMovementDto>(items, totalCount, pageNumber, pageSize);
-        return ApiResponse<PagedResult<StockMovementDto>>.Ok(result);
+        var result = new PagedResult<StockMovementDto>(dtos, totalCount, pageNumber, pageSize);
+        return ApiResponse<IReadOnlyList<StockMovementDto>>.Ok(result.Items, "Success", result.Meta);
     }
 
     public async Task<ApiResponse<StockSummaryDto>> GetStockSummaryAsync(CancellationToken cancellationToken = default)
     {
-        var products = await _unitOfWork.Products.GetAllAsync(cancellationToken);
+        var totalProducts = await _unitOfWork.Products.CountAsync(null, cancellationToken);
+        var totalItemsInStock = await _unitOfWork.Products.SumAsync(p => p.StockQuantity, null, cancellationToken);
+        var lowStockCount = await _unitOfWork.Products.CountAsync(p => p.StockQuantity <= p.MinStockLevel && p.StockQuantity > 0, cancellationToken);
+        var outOfStockCount = await _unitOfWork.Products.CountAsync(p => p.StockQuantity <= 0, cancellationToken);
 
         var summary = new StockSummaryDto
         {
-            TotalProducts = products.Count,
-            TotalItemsInStock = products.Sum(p => p.StockQuantity),
-            LowStockCount = products.Count(p => p.StockQuantity <= p.MinStockLevel && p.StockQuantity > 0),
-            OutOfStockCount = products.Count(p => p.StockQuantity <= 0)
+            TotalProducts = totalProducts,
+            TotalItemsInStock = totalItemsInStock,
+            LowStockCount = lowStockCount,
+            OutOfStockCount = outOfStockCount
         };
 
         return ApiResponse<StockSummaryDto>.Ok(summary);
