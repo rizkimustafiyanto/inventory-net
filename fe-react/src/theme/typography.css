@@ -1,0 +1,72 @@
+/* ==========================================================================
+   Design Tokens: Typography & Font Hierarchies
+   Unified scale for Headings, Body, Subheadings, Captions, and Code
+   ========================================================================== */
+
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+}
+
+/* Page Level Headings */
+@utility text-heading-1 {
+  font-size: 1.75rem;          /* 28px */
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
+}
+
+/* Section Level Headings */
+@utility text-heading-2 {
+  font-size: 1.25rem;          /* 20px */
+  line-height: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+/* Card / Modal Titles */
+@utility text-heading-3 {
+  font-size: 1rem;             /* 16px */
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--foreground);
+}
+
+/* Subheadings & Labels */
+@utility text-subheading {
+  font-size: 0.875rem;         /* 14px */
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+/* Body Texts */
+@utility text-body {
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  color: var(--foreground);
+}
+
+@utility text-body-muted {
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  color: var(--muted-foreground);
+}
+
+/* Metadata, Captions, and Badges */
+@utility text-caption {
+  font-size: 0.75rem;          /* 12px */
+  line-height: 1rem;
+  color: var(--muted-foreground);
+}
+
+/* Monospace SKU, Reference, and Codes */
+@utility text-mono-code {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.75rem;
+  letter-spacing: -0.01em;
+}

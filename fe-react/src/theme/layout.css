@@ -1,0 +1,52 @@
+/* ==========================================================================
+   Design Tokens: Layout, Spacing, Shadows, and Radii
+   Unified geometry and depth for Cards, Dialogs, Tables, and Shells
+   ========================================================================== */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.33);
+  --radius-2xl: calc(var(--radius) * 1.66);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Semantic Shadow Tokens */
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-dropdown: var(--shadow-dropdown);
+  --shadow-modal: var(--shadow-modal);
+}
+
+:root {
+  --radius: 0.75rem;                       /* 12px base radius */
+  --content-max-w: 88rem;                 /* 1408px max container */
+
+  /* Shadows (Light Mode) */
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+  --shadow-card-hover: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-dropdown: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  --shadow-modal: 0 20px 25px -5px rgb(0 0 0 / 0.12), 0 8px 10px -6px rgb(0 0 0 / 0.08);
+}
+
+.dark {
+  /* Shadows (Dark Mode) */
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.35);
+  --shadow-card-hover: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+  --shadow-dropdown: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+  --shadow-modal: 0 20px 25px -5px rgb(0 0 0 / 0.6);
+}
+
+@utility container-fluid {
+  width: 100%;
+  max-width: var(--content-max-w);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@utility section-spacing {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
