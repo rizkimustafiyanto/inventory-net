@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { LogOut, UserCircle } from "lucide-react"
 import { useAuthStore } from "@/features/auth/store/auth.store"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui"
 
 type DashboardTopbarProps = {
   title: string

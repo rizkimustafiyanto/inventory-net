@@ -12,7 +12,7 @@ import {
   BarChart3,
   Users,
 } from "lucide-react"
-import { Card } from "@/components/ui/card"
+import { Card } from "@/components/ui"
 import { useAuthStore } from "@/features/auth/store/auth.store"
 import { cn } from "@/lib/utils"
 import { DashboardTopbar } from "./dashboard-topbar"
