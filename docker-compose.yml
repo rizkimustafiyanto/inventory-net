@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   oracle:
     image: gvenzl/oracle-free:23-slim
@@ -21,12 +19,15 @@ services:
     build:
       context: ./be-net
       dockerfile: Dockerfile
+      target: dev
     restart: unless-stopped
     depends_on:
       - oracle
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
+      DOTNET_USE_POLLING_FILE_WATCHER: "true"
+      DOTNET_WATCH_RESTART_ON_RUDE_EDIT: "true"
       ConnectionStrings__OracleConnection: "Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=YourPassword123;"
       Jwt__Key: "INVENTORY_NET_ULTRA_SECURE_JWT_SECRET_KEY_2026_TEST_KEY_MUST_BE_LONG!"
       Jwt__Issuer: "InventoryNetApi"
@@ -35,24 +36,69 @@ services:
       - "8080:8080"
     networks:
       - inventory-network
+    develop:
+      watch:
+        - action: rebuild
+          path: ./be-net/Inventory.sln
+        - action: rebuild
+          path: ./be-net/src/Inventory.Domain/Inventory.Domain.csproj
+        - action: rebuild
+          path: ./be-net/src/Inventory.Application/Inventory.Application.csproj
+        - action: rebuild
+          path: ./be-net/src/Inventory.Infrastructure/Inventory.Infrastructure.csproj
+        - action: rebuild
+          path: ./be-net/src/Inventory.Api/Inventory.Api.csproj
+        - action: sync
+          path: ./be-net/src
+          target: /app/src
+          ignore:
+            - "bin/"
+            - "obj/"
+            - "**/bin/**"
+            - "**/obj/**"
 
   frontend:
     container_name: inventory-frontend
     build:
       context: ./fe-react
       dockerfile: Dockerfile
+      target: dev
       args:
         NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
     restart: unless-stopped
     depends_on:
       - backend
     environment:
-      NODE_ENV: "production"
+      NODE_ENV: "development"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      WATCHPACK_POLLING: "true"
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
     ports:
       - "3000:3000"
     networks:
       - inventory-network
+    develop:
+      watch:
+        - action: rebuild
+          path: ./fe-react/package.json
+        - action: rebuild
+          path: ./fe-react/package-lock.json
+        - action: sync+restart
+          path: ./fe-react/next.config.ts
+          target: /app/next.config.ts
+        - action: sync+restart
+          path: ./fe-react/postcss.config.mjs
+          target: /app/postcss.config.mjs
+        - action: sync+restart
+          path: ./fe-react/tsconfig.json
+          target: /app/tsconfig.json
+        - action: sync
+          path: ./fe-react/src
+          target: /app/src
+        - action: sync
+          path: ./fe-react/public
+          target: /app/public
 
 volumes:
   oracle_data:

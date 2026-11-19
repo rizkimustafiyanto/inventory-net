@@ -7,7 +7,24 @@ COPY package*.json ./
 
 RUN npm install
 
-# Build
+# Development stage (used for docker compose watch / live reload)
+FROM node:20-alpine AS dev
+
+WORKDIR /app
+
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+ENV WATCHPACK_POLLING=true
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]
+
+# Build stage (for production)
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -20,7 +37,7 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 
 RUN npm run build
 
-# Runtime
+# Runtime stage (Production)
 FROM node:20-alpine AS runner
 
 WORKDIR /app

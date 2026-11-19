@@ -124,12 +124,21 @@ Format response mengikuti spesifikasi standar industri (JSON:API / RESTful Best 
 
 ---
 
-## 🚀 4. Cara Menjalankan Aplikasi (1 Langkah via Docker)
+## 🚀 4. Cara Menjalankan Aplikasi (Docker)
 
 Seluruh komponen (Oracle Database, Backend .NET, dan Frontend Next.js) telah dikonfigurasi melalui Docker Compose. Anda **tidak perlu menginstal .NET SDK, Node.js, atau Oracle** pada sistem operasi host.
 
-Cukup jalankan perintah berikut di root folder project:
+### Mode Development (Hot Reload & Realtime Watch):
+Untuk pengembangan dengan fitur live reload otomatis tanpa perlu rebuild/recreate setiap ada perubahan kode:
+```bash
+docker compose up --watch
+```
+> Atau jalankan secara terpisah: `docker compose up -d` kemudian `docker compose watch`.
 
+* **Backend (`be-net`)**: Mendukung .NET Hot Reload via `dotnet watch run`. Perubahan di file `.cs` akan langsung dimuat secara instan. Jika file `.csproj` atau `Inventory.sln` diubah, Docker Compose akan otomatis me-rebuild container.
+* **Frontend (`fe-react`)**: Berjalan di mode `next dev` (Turbopack). Perubahan komponen/halaman di folder `src` atau asset di `public` langsung di-sync dan direfresh di browser via Fast Refresh.
+
+### Mode Production / Background:
 ```bash
 docker compose up -d --build
 ```
@@ -137,7 +146,7 @@ docker compose up -d --build
 ### Akses Layanan:
 * 🌐 **Frontend Web App**: [http://localhost:3000](http://localhost:3000)
 * 📑 **API Documentation (Swagger UI)**: [http://localhost:8080/swagger](http://localhost:8080/swagger)
-* 🗄️ **Oracle Database Free 23c**: `localhost:1521` (PDB: `FREEPDB1`, User: `inventory_user`, Pass: `InventoryPass123!`)
+* 🗄️ **Oracle Database Free 23c**: `localhost:1521` (PDB: `FREEPDB1`, User: `inventory_user`, Pass: `YourPassword123`)
 
 ---
 
