@@ -1,10 +1,15 @@
 import api from "@/lib/api/client"
-import type { ApiResponse } from "@/features/auth/types"
-import type { Product, PagedResult, CreateProductPayload, UpdateProductPayload, ProductFilterParams } from "../types"
+import type {
+  ApiResponse,
+  Product,
+  CreateProductPayload,
+  UpdateProductPayload,
+  ProductFilterParams,
+} from "@/types"
 
 export const productService = {
-  getPaged: async (params?: ProductFilterParams): Promise<ApiResponse<PagedResult<Product>>> => {
-    const res = await api.get<ApiResponse<PagedResult<Product>>>("/api/products", { params })
+  getPaged: async (params?: ProductFilterParams): Promise<ApiResponse<Product[]>> => {
+    const res = await api.get<ApiResponse<Product[]>>("/api/products", { params })
     return res.data
   },
 

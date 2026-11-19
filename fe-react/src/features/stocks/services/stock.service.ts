@@ -1,7 +1,10 @@
 import api from "@/lib/api/client"
-import type { ApiResponse } from "@/features/auth/types"
-import type { PagedResult } from "@/features/products/types"
-import type { StockMovement, CreateStockMovementPayload, StockSummary } from "../types"
+import type {
+  ApiResponse,
+  StockMovement,
+  CreateStockMovementPayload,
+  StockSummary,
+} from "@/types"
 
 export const stockService = {
   recordMovement: async (payload: CreateStockMovementPayload): Promise<ApiResponse<StockMovement>> => {
@@ -9,8 +12,8 @@ export const stockService = {
     return res.data
   },
 
-  getMovements: async (productId?: number, pageNumber = 1, pageSize = 15): Promise<ApiResponse<PagedResult<StockMovement>>> => {
-    const res = await api.get<ApiResponse<PagedResult<StockMovement>>>("/api/stocks/movements", {
+  getMovements: async (productId?: number, pageNumber = 1, pageSize = 15): Promise<ApiResponse<StockMovement[]>> => {
+    const res = await api.get<ApiResponse<StockMovement[]>>("/api/stocks/movements", {
       params: { productId, pageNumber, pageSize },
     })
     return res.data

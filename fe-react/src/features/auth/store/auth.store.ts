@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { TOKEN_STORAGE_KEY, ROLE_STORAGE_KEY, USER_STORAGE_KEY } from "@/lib/api/client"
-import type { LoginResponse } from "../types"
+import type { LoginResponse } from "@/types"
 
 type AuthState = {
   token: string | null

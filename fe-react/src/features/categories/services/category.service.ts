@@ -1,6 +1,5 @@
 import api from "@/lib/api/client"
-import type { ApiResponse } from "@/features/auth/types"
-import type { Category, CreateCategoryPayload } from "../types"
+import type { ApiResponse, Category, CreateCategoryPayload } from "@/types"
 
 export const categoryService = {
   getAll: async (): Promise<ApiResponse<Category[]>> => {
