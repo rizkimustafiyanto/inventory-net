@@ -19,7 +19,7 @@ export function DashboardTopbar({ title }: DashboardTopbarProps) {
   }
 
   return (
-    <header className="flex h-16 items-center justify-between rounded-2xl border border-slate-200 bg-white/95 px-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/95">
+    <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 sm:px-6 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/95">
       <div className="flex items-center gap-3">
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
       </div>

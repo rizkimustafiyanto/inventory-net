@@ -18,13 +18,28 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { productService } from "@/features/products/services/product.service"
 import { categoryService } from "@/features/categories/services/category.service"
-import type { Product, CreateProductPayload } from "@/features/products/types"
-import type { Category } from "@/features/categories/types"
+import { useAuthStore } from "@/features/auth/store/auth.store"
+import { PaginationControl } from "@/components/shared/pagination-control"
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableEmpty,
+} from "@/components/ui/table"
+import type { Product, CreateProductPayload, Category, PaginationMeta } from "@/types"
 
 export default function ProductsPage() {
+  const { role } = useAuthStore()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Pagination state
+  const [page, setPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
 
   // Filters
   const [search, setSearch] = useState("")
@@ -49,15 +64,19 @@ export default function ProductsPage() {
       setLoading(true)
       const [prodRes, catRes] = await Promise.all([
         productService.getPaged({
+          pageNumber: page,
+          pageSize: 10,
           search: search.trim() || undefined,
           categoryId: selectedCategoryId,
           lowStockOnly: lowStockOnly || undefined,
-          pageSize: 50,
         }),
         categoryService.getAll(),
       ])
 
-      if (prodRes.success && prodRes.data) setProducts(prodRes.data.items)
+      if (prodRes.success && prodRes.data) {
+        setProducts(prodRes.data)
+        if (prodRes.meta) setMeta(prodRes.meta)
+      }
       if (catRes.success && catRes.data) {
         const catList = catRes.data
         setCategories(catList)
@@ -70,7 +89,7 @@ export default function ProductsPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, selectedCategoryId, lowStockOnly, form.categoryId])
+  }, [page, search, selectedCategoryId, lowStockOnly, form.categoryId])
 
   useEffect(() => {
     loadData()
@@ -187,71 +206,80 @@ export default function ProductsPage() {
 
         {/* Products Table */}
         <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50/75 text-xs font-semibold text-slate-500 uppercase dark:border-slate-800 dark:bg-slate-800/50">
-                <tr>
-                  <th className="px-6 py-4">SKU & Produk</th>
-                  <th className="px-6 py-4">Kategori</th>
-                  <th className="px-6 py-4">Harga Satuan</th>
-                  <th className="px-6 py-4">Stok Saat Ini</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Aksi</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {products.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
-                      {loading ? "Memuat katalog produk..." : "Tidak ada produk yang sesuai filter."}
-                    </td>
-                  </tr>
-                ) : (
-                  products.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-900 dark:text-white">{p.name}</div>
-                        <div className="text-xs font-mono text-slate-400">{p.sku}</div>
-                      </td>
-                      <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                        {p.categoryName}
-                      </td>
-                      <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
-                        Rp {p.price.toLocaleString("id-ID")}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-bold text-slate-900 dark:text-white">{p.stockQuantity}</span>
-                        <span className="text-xs text-slate-400"> (Min: {p.minStockLevel})</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {p.stockQuantity <= 0 ? (
-                          <Badge variant="destructive">Habis</Badge>
-                        ) : p.stockQuantity <= p.minStockLevel ? (
-                          <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                            Menipis
-                          </span>
+          <Table minWidth="800px" wrapHeader={false} wrapBody={false}>
+            <TableHeader>
+              <TableRow>
+                <TableHead>SKU & Produk</TableHead>
+                <TableHead>Kategori</TableHead>
+                <TableHead>Harga Satuan</TableHead>
+                <TableHead>Stok Saat Ini</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[88px] text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.length === 0 ? (
+                <TableEmpty colSpan={6} loading={loading} message="Tidak ada produk yang sesuai filter." />
+              ) : (
+                products.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell wrap={true} className="max-w-[260px]">
+                      <div className="font-semibold text-slate-900 dark:text-white">{p.name}</div>
+                      <div className="text-xs font-mono text-slate-400">{p.sku}</div>
+                    </TableCell>
+                    <TableCell wrap={false} className="text-slate-600 dark:text-slate-300">
+                      {p.categoryName}
+                    </TableCell>
+                    <TableCell wrap={false} className="font-medium text-slate-900 dark:text-white">
+                      Rp {p.price.toLocaleString("id-ID")}
+                    </TableCell>
+                    <TableCell wrap={false}>
+                      <span className="font-bold text-slate-900 dark:text-white">{p.stockQuantity}</span>
+                      <span className="text-xs text-slate-400"> (Min: {p.minStockLevel})</span>
+                    </TableCell>
+                    <TableCell wrap={false}>
+                      {p.stockQuantity <= 0 ? (
+                        <Badge variant="destructive">Habis</Badge>
+                      ) : p.stockQuantity <= p.minStockLevel ? (
+                        <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          Menipis
+                        </span>
+                      ) : (
+                        <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                          Aman
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell wrap={false} className="text-right">
+                      <div className="flex items-center justify-end">
+                        {role === "Admin" ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(p.id, p.name)}
+                            className="size-8 p-0 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                            title="Hapus Produk (Admin)"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
                         ) : (
-                          <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                            Aman
-                          </span>
+                          <div className="flex size-8 items-center justify-center text-xs text-slate-400">
+                            —
+                          </div>
                         )}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(p.id, p.name)}
-                          className="size-8 p-0 text-rose-500 hover:bg-rose-50 hover:text-rose-700"
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+
+          <PaginationControl
+            meta={meta}
+            onPageChange={(p) => setPage(p)}
+            disabled={loading}
+          />
         </Card>
 
         {/* Modal Tambah Produk */}

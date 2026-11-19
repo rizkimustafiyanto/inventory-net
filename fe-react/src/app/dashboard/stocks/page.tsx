@@ -19,13 +19,26 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { stockService } from "@/features/stocks/services/stock.service"
 import { productService } from "@/features/products/services/product.service"
-import type { StockMovement, StockMovementType } from "@/features/stocks/types"
-import type { Product } from "@/features/products/types"
+import { PaginationControl } from "@/components/shared/pagination-control"
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableEmpty,
+} from "@/components/ui/table"
+import type { StockMovement, StockMovementType, Product, PaginationMeta } from "@/types"
 
 export default function StockMovementsPage() {
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Pagination state
+  const [page, setPage] = useState(1)
+  const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
 
   // Form state
   const [selectedProductId, setSelectedProductId] = useState<number>(0)
@@ -39,13 +52,16 @@ export default function StockMovementsPage() {
     try {
       setLoading(true)
       const [movRes, prodRes] = await Promise.all([
-        stockService.getMovements(undefined, 1, 50),
+        stockService.getMovements(undefined, page, 10),
         productService.getPaged({ pageSize: 100 }),
       ])
 
-      if (movRes.success && movRes.data) setMovements(movRes.data.items)
+      if (movRes.success && movRes.data) {
+        setMovements(movRes.data)
+        if (movRes.meta) setMeta(movRes.meta)
+      }
       if (prodRes.success && prodRes.data) {
-        const prodItems = prodRes.data.items
+        const prodItems = prodRes.data
         setProducts(prodItems)
         if (selectedProductId === 0 && prodItems.length > 0) {
           setSelectedProductId(prodItems[0].id)
@@ -56,7 +72,7 @@ export default function StockMovementsPage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedProductId])
+  }, [page, selectedProductId])
 
   useEffect(() => {
     loadData()
@@ -117,9 +133,10 @@ export default function StockMovementsPage() {
 
   return (
     <DashboardShell title="Mutasi & Pergerakan Stok">
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
         {/* Form Catat Mutasi */}
-        <Card className="rounded-2xl border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="w-full">
+          <Card className="rounded-2xl border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-4 flex items-center gap-2">
             <PlusCircle className="size-5 text-indigo-600" />
             <h3 className="font-bold text-slate-900 dark:text-white">Catat Pergerakan Stok</h3>
@@ -238,8 +255,10 @@ export default function StockMovementsPage() {
             </Button>
           </form>
         </Card>
+      </div>
 
-        {/* Tabel Riwayat Mutasi */}
+      {/* Tabel Riwayat Mutasi */}
+      <div className="min-w-0 w-full">
         <Card className="overflow-hidden rounded-2xl border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800">
             <div className="flex items-center gap-2">
@@ -257,70 +276,71 @@ export default function StockMovementsPage() {
             </Button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50/75 text-xs font-semibold text-slate-500 uppercase dark:border-slate-800 dark:bg-slate-800/50">
-                <tr>
-                  <th className="px-5 py-3">Produk</th>
-                  <th className="px-5 py-3">Tipe</th>
-                  <th className="px-5 py-3">Jumlah</th>
-                  <th className="px-5 py-3">Sebelum → Sesudah</th>
-                  <th className="px-5 py-3">Keterangan</th>
-                  <th className="px-5 py-3">Waktu</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {movements.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
-                      {loading ? "Memuat riwayat mutasi..." : "Belum ada riwayat pergerakan stok."}
-                    </td>
-                  </tr>
-                ) : (
-                  movements.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
-                      <td className="px-5 py-3">
-                        <div className="font-semibold text-slate-900 dark:text-white">{m.productName}</div>
-                        <div className="text-xs font-mono text-slate-400">{m.productSku}</div>
-                      </td>
-                      <td className="px-5 py-3">
-                        <Badge
-                          variant={m.type === 1 ? "default" : m.type === 2 ? "destructive" : "secondary"}
-                          className="text-xs"
-                        >
-                          {m.type === 1 ? "Masuk" : m.type === 2 ? "Keluar" : "Koreksi"}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-3 font-bold text-slate-900 dark:text-white">
-                        {m.type === 1 ? `+${m.quantity}` : m.type === 2 ? `-${m.quantity}` : m.quantity}
-                      </td>
-                      <td className="px-5 py-3 text-xs text-slate-500">
-                        {m.stockBefore} → <span className="font-semibold text-slate-800 dark:text-slate-200">{m.stockAfter}</span>
-                      </td>
-                      <td className="px-5 py-3 text-xs text-slate-600 dark:text-slate-300">
-                        <div>{m.reason || "—"}</div>
-                        {m.referenceNumber && (
-                          <div className="flex items-center gap-1 font-mono text-indigo-500">
-                            <FileText className="size-3" />
-                            <span>{m.referenceNumber}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-xs text-slate-400">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="size-3" />
-                          <span>{new Date(m.createdAt).toLocaleString("id-ID")}</span>
+          <Table minWidth="800px" wrapHeader={false} wrapBody={false}>
+            <TableHeader>
+              <TableRow>
+                <TableHead wrap={false}>Produk</TableHead>
+                <TableHead wrap={false}>Tipe</TableHead>
+                <TableHead wrap={false}>Jumlah</TableHead>
+                <TableHead wrap={false}>Sebelum → Sesudah</TableHead>
+                <TableHead wrap={false}>Keterangan</TableHead>
+                <TableHead wrap={false}>Waktu</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {movements.length === 0 ? (
+                <TableEmpty colSpan={6} loading={loading} message="Belum ada riwayat pergerakan stok." />
+              ) : (
+                movements.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell wrap={true} className="max-w-[200px]">
+                      <div className="font-semibold text-slate-900 dark:text-white">{m.productName}</div>
+                      <div className="text-xs font-mono text-slate-400">{m.productSku}</div>
+                    </TableCell>
+                    <TableCell wrap={false}>
+                      <Badge
+                        variant={m.type === 1 ? "default" : m.type === 2 ? "destructive" : "secondary"}
+                        className="text-xs"
+                      >
+                        {m.type === 1 ? "Masuk" : m.type === 2 ? "Keluar" : "Koreksi"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell wrap={false} className="font-bold text-slate-900 dark:text-white">
+                      {m.type === 1 ? `+${m.quantity}` : m.type === 2 ? `-${m.quantity}` : m.quantity}
+                    </TableCell>
+                    <TableCell wrap={false} className="text-xs text-slate-500">
+                      {m.stockBefore} → <span className="font-semibold text-slate-800 dark:text-slate-200">{m.stockAfter}</span>
+                    </TableCell>
+                    <TableCell wrap={true} className="max-w-[220px] text-xs text-slate-600 dark:text-slate-300">
+                      <div>{m.reason || "—"}</div>
+                      {m.referenceNumber && (
+                        <div className="flex items-center gap-1 font-mono text-indigo-500">
+                          <FileText className="size-3" />
+                          <span>{m.referenceNumber}</span>
                         </div>
-                        <div className="text-[11px] text-slate-400">Oleh: {m.userName || "Petugas"}</div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      )}
+                    </TableCell>
+                    <TableCell wrap={false} className="text-xs text-slate-400">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="size-3" />
+                        <span>{new Date(m.createdAt).toLocaleString("id-ID")}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400">Oleh: {m.userName || "Petugas"}</div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+
+          <PaginationControl
+            meta={meta}
+            onPageChange={(p) => setPage(p)}
+            disabled={loading}
+          />
         </Card>
       </div>
-    </DashboardShell>
+    </div>
+  </DashboardShell>
   )
 }

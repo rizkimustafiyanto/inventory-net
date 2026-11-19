@@ -20,8 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { stockService } from "@/features/stocks/services/stock.service"
 import { productService } from "@/features/products/services/product.service"
-import type { StockSummary, StockMovement } from "@/features/stocks/types"
-import type { Product } from "@/features/products/types"
+import type { StockSummary, StockMovement, Product } from "@/types"
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<StockSummary | null>(null)
@@ -39,8 +38,8 @@ export default function DashboardPage() {
       ])
 
       if (sumRes.success && sumRes.data) setSummary(sumRes.data)
-      if (movRes.success && movRes.data) setRecentMovements(movRes.data.items)
-      if (lowRes.success && lowRes.data) setLowStockProducts(lowRes.data.items)
+      if (movRes.success && movRes.data) setRecentMovements(movRes.data)
+      if (lowRes.success && lowRes.data) setLowStockProducts(lowRes.data)
     } catch {
       toast.error("Gagal memuat data ringkasan inventaris")
     } finally {

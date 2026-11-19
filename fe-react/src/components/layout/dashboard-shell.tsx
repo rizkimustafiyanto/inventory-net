@@ -9,17 +9,20 @@ import {
   Package,
   Layers,
   ArrowLeftRight,
+  BarChart3,
+  Users,
 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { useAuthStore } from "@/features/auth/store/auth.store"
 import { cn } from "@/lib/utils"
 import { DashboardTopbar } from "./dashboard-topbar"
 
-const navItems = [
+const baseNavItems = [
   { label: "Ringkasan Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Katalog Produk", href: "/dashboard/products", icon: Package },
   { label: "Mutasi & Stok", href: "/dashboard/stocks", icon: ArrowLeftRight },
   { label: "Kategori Barang", href: "/dashboard/categories", icon: Layers },
+  { label: "Laporan & Nilai Aset", href: "/dashboard/reports", icon: BarChart3 },
 ]
 
 type DashboardShellProps = {
@@ -30,7 +33,12 @@ type DashboardShellProps = {
 export function DashboardShell({ title, children }: DashboardShellProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const { isAuthenticated, initAuth } = useAuthStore()
+  const { isAuthenticated, initAuth, role } = useAuthStore()
+
+  const navItems = [
+    ...baseNavItems,
+    ...(role === "Admin" ? [{ label: "Manajemen Pengguna", href: "/dashboard/users", icon: Users }] : []),
+  ]
 
   useEffect(() => {
     initAuth()
@@ -45,10 +53,10 @@ export function DashboardShell({ title, children }: DashboardShellProps) {
   }, [isAuthenticated, router])
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-slate-950">
-      <div className="mx-auto grid w-full max-w-7xl gap-6 lg:grid-cols-[260px_1fr]">
+    <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 px-3 py-4 sm:px-6 sm:py-6 dark:bg-slate-950">
+      <div className="mx-auto grid w-full max-w-7xl gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* Sidebar */}
-        <aside className="space-y-4">
+        <aside className="w-full space-y-4 lg:w-[260px]">
           <Card className="overflow-hidden rounded-3xl border-slate-200 bg-white/95 p-0 shadow-sm dark:border-slate-800 dark:bg-slate-900/95">
             <div className="h-2 bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500" />
             <div className="space-y-6 p-6">
@@ -96,7 +104,7 @@ export function DashboardShell({ title, children }: DashboardShellProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="space-y-6">
+        <main className="min-w-0 w-full space-y-6">
           <DashboardTopbar title={title} />
           {children}
         </main>
