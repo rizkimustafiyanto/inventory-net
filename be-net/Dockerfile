@@ -7,6 +7,7 @@ COPY src/Inventory.Domain/Inventory.Domain.csproj src/Inventory.Domain/
 COPY src/Inventory.Application/Inventory.Application.csproj src/Inventory.Application/
 COPY src/Inventory.Infrastructure/Inventory.Infrastructure.csproj src/Inventory.Infrastructure/
 COPY src/Inventory.Api/Inventory.Api.csproj src/Inventory.Api/
+COPY tests/Inventory.Application.UnitTests/Inventory.Application.UnitTests.csproj tests/Inventory.Application.UnitTests/
 
 # Restore dependencies
 RUN dotnet restore
