@@ -54,4 +54,56 @@ public class GenericRepository<T> : IRepository<T> where T : BaseEntity
             ? await _dbSet.CountAsync(cancellationToken)
             : await _dbSet.CountAsync(predicate, cancellationToken);
     }
+
+    public virtual async Task<int> SumAsync(Expression<Func<T, int>> selector, Expression<Func<T, bool>>? predicate = null, CancellationToken cancellationToken = default)
+    {
+        var query = _dbSet.AsNoTracking();
+        if (predicate != null)
+        {
+            query = query.Where(predicate);
+        }
+        return await query.SumAsync(selector, cancellationToken);
+    }
+
+    public virtual async Task<(IReadOnlyList<T> Items, int TotalCount)> GetPagedAsync(
+        Expression<Func<T, bool>>? predicate = null,
+        int pageNumber = 1,
+        int pageSize = 10,
+        Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
+        CancellationToken cancellationToken = default,
+        params Expression<Func<T, object>>[] includes)
+    {
+        // Enforce safe limits at database query level
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = Math.Clamp(pageSize <= 0 ? 10 : pageSize, 1, 100);
+
+        IQueryable<T> query = _dbSet.AsNoTracking();
+
+        if (includes != null)
+        {
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+        }
+
+        if (predicate != null)
+        {
+            query = query.Where(predicate);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        if (orderBy != null)
+        {
+            query = orderBy(query);
+        }
+
+        var items = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        return (items, totalCount);
+    }
 }

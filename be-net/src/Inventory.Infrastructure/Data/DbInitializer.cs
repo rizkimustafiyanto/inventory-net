@@ -9,8 +9,15 @@ public static class DbInitializer
 {
     public static async Task InitializeAsync(ApplicationDbContext context, IPasswordHasher passwordHasher)
     {
-        // Apply pending migrations and initialize schema
-        await context.Database.MigrateAsync();
+        // Creates tables if they don't exist; ignore if already created in Oracle
+        try
+        {
+            await context.Database.EnsureCreatedAsync();
+        }
+        catch (Exception ex) when (ex.Message.Contains("ORA-00955") || ex.ToString().Contains("ORA-00955"))
+        {
+            // Table already exists in Oracle, safe to continue
+        }
 
         // 1. Seed Users
         if (!await context.Users.AnyAsync())
@@ -37,7 +44,18 @@ public static class DbInitializer
                 CreatedAt = DateTime.UtcNow
             };
 
-            await context.Users.AddRangeAsync(adminUser, staffUser);
+            var managerUser = new User
+            {
+                Username = "manager",
+                Email = "manager@inventory.local",
+                FullName = "Supervisor / Auditor",
+                PasswordHash = passwordHasher.HashPassword("manager123"),
+                Role = UserRole.Manager,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await context.Users.AddRangeAsync(adminUser, staffUser, managerUser);
             await context.SaveChangesAsync();
         }
 
