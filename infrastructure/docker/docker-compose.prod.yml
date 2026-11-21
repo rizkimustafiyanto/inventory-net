@@ -1,0 +1,50 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim
+    container_name: inventory-oracle
+    restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-YourPassword123}
+      APP_USER: ${APP_USER:-inventory_user}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD:-YourPassword123}
+    ports:
+      - "${ORACLE_PORT:-1521}:1521"
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    networks:
+      - inventory-network
+
+  backend:
+    image: ghcr.io/${REGISTRY_OWNER}/inventory-backend:${IMAGE_TAG:-latest}
+    container_name: inventory-backend
+    restart: unless-stopped
+    depends_on:
+      - oracle
+    env_file:
+      - ${BACKEND_ENV_FILE:-./backend/.env.production}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    networks:
+      - inventory-network
+
+  frontend:
+    image: ghcr.io/${REGISTRY_OWNER}/inventory-frontend:${IMAGE_TAG:-latest}
+    container_name: inventory-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    env_file:
+      - ${FRONTEND_ENV_FILE:-./frontend/.env.production}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - inventory-network
+
+volumes:
+  oracle_data:
+    name: inventory_oracle_data
+
+networks:
+  inventory-network:
+    name: inventory_network
+    driver: bridge
