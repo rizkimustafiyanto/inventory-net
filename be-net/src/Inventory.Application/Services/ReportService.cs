@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Inventory.Application.Common;
 using Inventory.Application.DTOs.Report;
 using Inventory.Application.Interfaces;
@@ -98,5 +99,56 @@ public class ReportService : IReportService
             .ToList();
 
         return ApiResponse<IReadOnlyList<StockReportDto>>.Ok(list);
+    }
+
+    public async Task<ApiResponse<IReadOnlyList<StockReportDto>>> GetPagedStockSummaryReportsAsync(
+        DateTime? date = null,
+        string? search = null,
+        int pageNumber = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        // First, ensure reports snapshot for targetDate is synchronized
+        await GetStockSummaryReportsAsync(date, cancellationToken);
+
+        var targetDate = date?.Date ?? DateTime.UtcNow.Date;
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = Math.Clamp(pageSize <= 0 ? 10 : pageSize, 1, 100);
+
+        var searchClean = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLower();
+
+        Expression<Func<StockReport, bool>> predicate = r =>
+            r.ReportDate.Date == targetDate &&
+            (searchClean == null ||
+             r.ProductName.ToLower().Contains(searchClean) ||
+             r.ProductSku.ToLower().Contains(searchClean) ||
+             (r.CategoryName != null && r.CategoryName.ToLower().Contains(searchClean)));
+
+        var (items, totalCount) = await _unitOfWork.StockReports.GetPagedAsync(
+            predicate: predicate,
+            pageNumber: pageNumber,
+            pageSize: pageSize,
+            orderBy: q => q.OrderBy(r => r.ProductName),
+            cancellationToken: cancellationToken);
+
+        var dtos = items.Select(r => new StockReportDto
+        {
+            Id = r.Id,
+            ReportDate = r.ReportDate,
+            ProductId = r.ProductId,
+            ProductSku = r.ProductSku,
+            ProductName = r.ProductName,
+            CategoryName = r.CategoryName,
+            OpeningStock = r.OpeningStock,
+            TotalIn = r.TotalIn,
+            TotalOut = r.TotalOut,
+            ClosingStock = r.ClosingStock,
+            UnitPrice = r.UnitPrice,
+            TotalStockValue = r.TotalStockValue,
+            CreatedAt = r.CreatedAt
+        }).ToList();
+
+        var result = new PagedResult<StockReportDto>(dtos, totalCount, pageNumber, pageSize);
+        return ApiResponse<IReadOnlyList<StockReportDto>>.Ok(result.Items, "Success", result.Meta);
     }
 }

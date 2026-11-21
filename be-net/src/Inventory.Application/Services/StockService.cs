@@ -103,6 +103,8 @@ public class StockService : IStockService
 
     public async Task<ApiResponse<IReadOnlyList<StockMovementDto>>> GetMovementsAsync(
         long? productId = null,
+        int? type = null,
+        string? search = null,
         int pageNumber = 1,
         int pageSize = 15,
         CancellationToken cancellationToken = default)
@@ -112,9 +114,23 @@ public class StockService : IStockService
         pageSize = Math.Clamp(pageSize <= 0 ? DefaultMovementPageSize : pageSize, 1, MaxMovementPageSize);
 
         var filterProductId = productId.HasValue && productId.Value > 0 ? productId.Value : (long?)null;
-        Expression<Func<StockMovement, bool>>? predicate = filterProductId.HasValue
-            ? m => m.ProductId == filterProductId.Value
+        StockMovementType? filterType = type.HasValue && Enum.IsDefined(typeof(StockMovementType), type.Value)
+            ? (StockMovementType)type.Value
             : null;
+        var searchClean = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLower();
+
+        Expression<Func<StockMovement, bool>>? predicate = null;
+        if (filterProductId.HasValue || filterType.HasValue || searchClean != null)
+        {
+            predicate = m =>
+                (!filterProductId.HasValue || m.ProductId == filterProductId.Value) &&
+                (!filterType.HasValue || m.Type == filterType.Value) &&
+                (searchClean == null ||
+                 (m.ReferenceNumber != null && m.ReferenceNumber.ToLower().Contains(searchClean)) ||
+                 (m.Reason != null && m.Reason.ToLower().Contains(searchClean)) ||
+                 (m.Product != null && (m.Product.Name.ToLower().Contains(searchClean) || m.Product.Sku.ToLower().Contains(searchClean))) ||
+                 (m.User != null && ((m.User.FullName != null && m.User.FullName.ToLower().Contains(searchClean)) || m.User.Username.ToLower().Contains(searchClean))));
+        }
 
         var (items, totalCount) = await _unitOfWork.StockMovements.GetPagedAsync(
             predicate: predicate,

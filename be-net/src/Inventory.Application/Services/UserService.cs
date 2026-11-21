@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Inventory.Application.Common;
 using Inventory.Application.DTOs.User;
 using Inventory.Application.Interfaces;
@@ -36,6 +37,58 @@ public class UserService : IUserService
             .ToList();
 
         return ApiResponse<IReadOnlyList<UserDto>>.Ok(dtos);
+    }
+
+    public async Task<ApiResponse<IReadOnlyList<UserDto>>> GetPagedUsersAsync(
+        int pageNumber = 1,
+        int pageSize = 10,
+        string? search = null,
+        string? role = null,
+        bool? isActive = null,
+        CancellationToken cancellationToken = default)
+    {
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = Math.Clamp(pageSize <= 0 ? 10 : pageSize, 1, 100);
+
+        var searchClean = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLower();
+
+        UserRole? filterRole = null;
+        if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<UserRole>(role, true, out var parsedRole))
+        {
+            filterRole = parsedRole;
+        }
+
+        Expression<Func<User, bool>>? predicate = null;
+        if (searchClean != null || filterRole.HasValue || isActive.HasValue)
+        {
+            predicate = u =>
+                (searchClean == null || u.Username.ToLower().Contains(searchClean) ||
+                 (u.FullName != null && u.FullName.ToLower().Contains(searchClean)) ||
+                 (u.Email != null && u.Email.ToLower().Contains(searchClean))) &&
+                (!filterRole.HasValue || u.Role == filterRole.Value) &&
+                (!isActive.HasValue || u.IsActive == isActive.Value);
+        }
+
+        var (items, totalCount) = await _unitOfWork.Users.GetPagedAsync(
+            predicate: predicate,
+            pageNumber: pageNumber,
+            pageSize: pageSize,
+            orderBy: q => q.OrderByDescending(u => u.CreatedAt),
+            cancellationToken: cancellationToken);
+
+        var dtos = items.Select(u => new UserDto
+        {
+            Id = u.Id,
+            Username = u.Username,
+            Email = u.Email,
+            FullName = u.FullName,
+            Role = u.Role,
+            IsActive = u.IsActive,
+            CreatedAt = u.CreatedAt
+        }).ToList();
+
+        var result = new PagedResult<UserDto>(dtos, totalCount, pageNumber, pageSize);
+        return ApiResponse<IReadOnlyList<UserDto>>.Ok(result.Items, "Success", result.Meta);
     }
 
     public async Task<ApiResponse<UserDto>> GetUserByIdAsync(long id, CancellationToken cancellationToken = default)

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Inventory.Application.Common;
 using Inventory.Application.DTOs.Category;
 using Inventory.Application.Interfaces;
@@ -34,6 +35,49 @@ public class CategoryService : ICategoryService
         }).ToList();
 
         return ApiResponse<IReadOnlyList<CategoryDto>>.Ok(dtos);
+    }
+
+    public async Task<ApiResponse<IReadOnlyList<CategoryDto>>> GetPagedCategoriesAsync(
+        int pageNumber = 1,
+        int pageSize = 10,
+        string? search = null,
+        CancellationToken cancellationToken = default)
+    {
+        pageNumber = pageNumber <= 0 ? 1 : pageNumber;
+        pageSize = Math.Clamp(pageSize <= 0 ? 10 : pageSize, 1, 100);
+
+        var searchClean = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLower();
+        Expression<Func<Category, bool>>? predicate = null;
+        if (searchClean != null)
+        {
+            predicate = c => c.Name.ToLower().Contains(searchClean) ||
+                             (c.Description != null && c.Description.ToLower().Contains(searchClean));
+        }
+
+        var (items, totalCount) = await _unitOfWork.Categories.GetPagedAsync(
+            predicate: predicate,
+            pageNumber: pageNumber,
+            pageSize: pageSize,
+            orderBy: q => q.OrderByDescending(c => c.CreatedAt),
+            cancellationToken: cancellationToken);
+
+        var categoryIds = items.Select(c => c.Id).ToList();
+        var products = await _unitOfWork.Products.FindAsync(p => categoryIds.Contains(p.CategoryId), cancellationToken);
+        var productCounts = products
+            .GroupBy(p => p.CategoryId)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var dtos = items.Select(c => new CategoryDto
+        {
+            Id = c.Id,
+            Name = c.Name,
+            Description = c.Description,
+            ProductCount = productCounts.TryGetValue(c.Id, out var count) ? count : 0,
+            CreatedAt = c.CreatedAt
+        }).ToList();
+
+        var result = new PagedResult<CategoryDto>(dtos, totalCount, pageNumber, pageSize);
+        return ApiResponse<IReadOnlyList<CategoryDto>>.Ok(result.Items, "Success", result.Meta);
     }
 
     public async Task<ApiResponse<CategoryDto>> GetCategoryByIdAsync(long id, CancellationToken cancellationToken = default)
