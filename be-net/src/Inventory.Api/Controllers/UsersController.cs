@@ -18,9 +18,15 @@ public class UsersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        [FromQuery] string? role = null,
+        [FromQuery] bool? isActive = null,
+        CancellationToken cancellationToken = default)
     {
-        var result = await _userService.GetAllUsersAsync(cancellationToken);
+        var result = await _userService.GetPagedUsersAsync(pageNumber, pageSize, search, role, isActive, cancellationToken);
         return Ok(result);
     }
 

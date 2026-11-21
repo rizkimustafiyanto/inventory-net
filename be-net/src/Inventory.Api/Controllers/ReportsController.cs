@@ -16,7 +16,26 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("stock-summary")]
-    public async Task<IActionResult> GetStockSummary([FromQuery] DateTime? date, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetStockSummary(
+        [FromQuery] DateTime? date,
+        [FromQuery] string? search = null,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] bool all = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (all)
+        {
+            var allResult = await _reportService.GetStockSummaryReportsAsync(date, cancellationToken);
+            return Ok(allResult);
+        }
+
+        var result = await _reportService.GetPagedStockSummaryReportsAsync(date, search, pageNumber, pageSize, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("stock-summary/all")]
+    public async Task<IActionResult> GetStockSummaryAll([FromQuery] DateTime? date, CancellationToken cancellationToken)
     {
         var result = await _reportService.GetStockSummaryReportsAsync(date, cancellationToken);
         return Ok(result);

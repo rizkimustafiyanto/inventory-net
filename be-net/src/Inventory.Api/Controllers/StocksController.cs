@@ -38,11 +38,13 @@ public class StocksController : ControllerBase
     [HttpGet("movements")]
     public async Task<IActionResult> GetMovements(
         [FromQuery] long? productId = null,
+        [FromQuery] int? type = null,
+        [FromQuery] string? search = null,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 15,
         CancellationToken cancellationToken = default)
     {
-        var result = await _stockService.GetMovementsAsync(productId, pageNumber, pageSize, cancellationToken);
+        var result = await _stockService.GetMovementsAsync(productId, type, search, pageNumber, pageSize, cancellationToken);
         return Ok(result);
     }
 

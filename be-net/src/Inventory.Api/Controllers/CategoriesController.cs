@@ -17,6 +17,17 @@ public class CategoriesController : ControllerBase
     }
 
     [HttpGet]
+    public async Task<IActionResult> GetPaged(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _categoryService.GetPagedCategoriesAsync(pageNumber, pageSize, search, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("all")]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var result = await _categoryService.GetAllCategoriesAsync(cancellationToken);
