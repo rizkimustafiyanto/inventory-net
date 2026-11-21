@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main, staging]
+  pull_request:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-ci:
+    name: Backend CI (.NET 8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK 8.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('be-net/**/*.csproj', 'be-net/Inventory.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore Dependencies
+        run: dotnet restore be-net/Inventory.sln
+
+      - name: Build Solution (Release)
+        run: dotnet build be-net/Inventory.sln -c Release --no-restore
+
+      - name: Run Unit Tests
+        run: dotnet test be-net/tests/Inventory.Application.UnitTests/Inventory.Application.UnitTests.csproj -c Release --no-build --verbosity normal
+
+  frontend-ci:
+    name: Frontend CI (Next.js 16)
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: fe-react/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: fe-react
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: fe-react
+        run: npm run lint
+
+      - name: Run TypeScript Type-Check
+        working-directory: fe-react
+        run: npx tsc --noEmit
+
+      - name: Build Next.js Application
+        working-directory: fe-react
+        run: npm run build

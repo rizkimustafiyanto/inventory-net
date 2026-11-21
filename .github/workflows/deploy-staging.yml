@@ -1,0 +1,247 @@
+name: Deploy (Staging VPS)
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-staging-vps
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Validate CI
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Backend Checks
+      - name: Setup .NET SDK 8.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('be-net/**/*.csproj', 'be-net/Inventory.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore Backend
+        run: dotnet restore be-net/Inventory.sln
+
+      - name: Build Backend (Release)
+        run: dotnet build be-net/Inventory.sln -c Release --no-restore
+
+      - name: Run Backend Unit Tests
+        run: dotnet test be-net/tests/Inventory.Application.UnitTests/Inventory.Application.UnitTests.csproj -c Release --no-build --verbosity normal
+
+      # Frontend Checks
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: fe-react/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: fe-react
+        run: npm ci
+
+      - name: Run Frontend Lint
+        working-directory: fe-react
+        run: npm run lint
+
+      - name: Run TypeScript Type-Check
+        working-directory: fe-react
+        run: npx tsc --noEmit
+
+      - name: Build Frontend Application
+        working-directory: fe-react
+        env:
+          NEXT_PUBLIC_API_BASE_URL: "http://localhost:8080"
+        run: npm run build
+
+  build_images:
+    name: Build & Push Images to GHCR (Staging)
+    if: github.ref == 'refs/heads/staging'
+    needs: ci
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.image_tag.outputs.image_tag }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Image Tag
+        id: image_tag
+        run: |
+          echo "IMAGE_TAG=staging" >> "$GITHUB_ENV"
+          echo "image_tag=staging" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Backend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./be-net
+          file: be-net/Dockerfile
+          target: runtime
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/inventory-backend:staging
+            ghcr.io/${{ github.repository_owner }}/inventory-backend:staging-${{ github.sha }}
+
+      - name: Build and Push Frontend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./fe-react
+          file: fe-react/Dockerfile
+          target: runner
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080' }}
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/inventory-frontend:staging
+            ghcr.io/${{ github.repository_owner }}/inventory-frontend:staging-${{ github.sha }}
+
+  deploy:
+    name: Deploy to Staging VPS
+    if: github.ref == 'refs/heads/staging'
+    needs: build_images
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
+      CERTBOT_DOMAINS: ${{ secrets.CERTBOT_DOMAINS }}
+      CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Required Secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_HOST:-}" ] || [ -z "${VPS_USER:-}" ] || [ -z "${VPS_SSH_KEY:-}" ] || [ -z "${VPS_PATH:-}" ]; then
+            echo "::error::Missing VPS secrets in GitHub Environment 'staging'. Required: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_PATH."
+            exit 1
+          fi
+
+      - name: Prepare Environment Files
+        env:
+          BACKEND_ENV: ${{ secrets.BACKEND_ENV }}
+          FRONTEND_ENV: ${{ secrets.FRONTEND_ENV }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/envs
+          if [ -n "${BACKEND_ENV:-}" ]; then
+            printf "%s\n" "${BACKEND_ENV}" > /tmp/envs/backend.env
+          else
+            touch /tmp/envs/backend.env
+          fi
+
+          if [ -n "${FRONTEND_ENV:-}" ]; then
+            printf "%s\n" "${FRONTEND_ENV}" > /tmp/envs/frontend.env
+          else
+            touch /tmp/envs/frontend.env
+          fi
+
+      - name: Setup SSH Key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Deploy to Staging VPS via SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          REGISTRY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          echo "[deploy] Connecting to Staging VPS at ${VPS_HOST}..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "mkdir -p ${VPS_PATH}/backend ${VPS_PATH}/frontend ${VPS_PATH}/deploy/logs ${VPS_PATH}/deploy/state"
+
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 /tmp/envs/backend.env "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/backend/.env.production"
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 /tmp/envs/frontend.env "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/frontend/.env.production"
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 infrastructure/docker/docker-compose.staging.yml "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/docker-compose.prod.yml"
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/deploy/deploy-remote.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/deploy-remote.sh"
+
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "chmod +x ${VPS_PATH}/deploy-remote.sh && \
+             IMAGE_TAG=staging \
+             REGISTRY_OWNER=${REGISTRY_OWNER} \
+             VPS_PATH=${VPS_PATH} \
+             COMPOSE_FILE=${VPS_PATH}/docker-compose.prod.yml \
+             BACKEND_ENV_FILE=${VPS_PATH}/backend/.env.production \
+             FRONTEND_ENV_FILE=${VPS_PATH}/frontend/.env.production \
+             bash ${VPS_PATH}/deploy-remote.sh deploy"
+
+      - name: Update Nginx Config (Staging)
+        if: ${{ env.CERTBOT_DOMAINS != '' }}
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          echo "[nginx] Configuring Nginx for Staging Domain: ${CERTBOT_DOMAINS}..."
+          cp infrastructure/nginx/inventory.staging.conf /tmp/inventory.staging.conf
+          sed -i "s/DOMAIN_PLACEHOLDER/${CERTBOT_DOMAINS}/g" /tmp/inventory.staging.conf
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 /tmp/inventory.staging.conf "${VPS_USER}@${VPS_HOST}:/tmp/inventory.staging.conf"
+
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "if ! command -v nginx >/dev/null 2>&1; then
+              sudo apt-get update -y && sudo apt-get install -y nginx
+            fi &&
+            sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled &&
+            sudo mv /tmp/inventory.staging.conf /etc/nginx/sites-available/inventory.staging.conf &&
+            sudo ln -sf /etc/nginx/sites-available/inventory.staging.conf /etc/nginx/sites-enabled/inventory.staging.conf &&
+            sudo rm -f /etc/nginx/sites-enabled/default &&
+            sudo nginx -t &&
+            sudo systemctl enable nginx &&
+            sudo systemctl reload nginx"
+
+      - name: Setup HTTPS (Certbot Staging)
+        if: ${{ env.CERTBOT_DOMAINS != '' && env.CERTBOT_EMAIL != '' }}
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          set -euo pipefail
+          echo "[certbot] Requesting SSL Certificate for: ${CERTBOT_DOMAINS}..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "if ! command -v certbot >/dev/null 2>&1; then
+              sudo apt-get update -y && sudo apt-get install -y certbot python3-certbot-nginx
+            fi &&
+            sudo certbot --nginx --non-interactive --agree-tos --keep-until-expiring --expand -m ${CERTBOT_EMAIL} $(printf -- '-d %s ' ${CERTBOT_DOMAINS}) &&
+            sudo systemctl reload nginx"
