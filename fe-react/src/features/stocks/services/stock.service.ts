@@ -4,6 +4,7 @@ import type {
   StockMovement,
   CreateStockMovementPayload,
   StockSummary,
+  StockMovementFilterParams,
 } from "@/types"
 
 export const stockService = {
@@ -12,9 +13,24 @@ export const stockService = {
     return res.data
   },
 
-  getMovements: async (productId?: number, pageNumber = 1, pageSize = 15): Promise<ApiResponse<StockMovement[]>> => {
+  getMovements: async (
+    paramsOrProductId?: StockMovementFilterParams | number,
+    pageNumber = 1,
+    pageSize = 15
+  ): Promise<ApiResponse<StockMovement[]>> => {
+    let params: StockMovementFilterParams = {}
+    if (typeof paramsOrProductId === "object" && paramsOrProductId !== null) {
+      params = paramsOrProductId
+    } else {
+      params = {
+        productId: paramsOrProductId,
+        pageNumber,
+        pageSize,
+      }
+    }
+
     const res = await api.get<ApiResponse<StockMovement[]>>("/api/stocks/movements", {
-      params: { productId, pageNumber, pageSize },
+      params,
     })
     return res.data
   },

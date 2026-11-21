@@ -1,9 +1,14 @@
 import api from "@/lib/api/client"
-import type { ApiResponse, Category, CreateCategoryPayload } from "@/types"
+import type { ApiResponse, Category, CreateCategoryPayload, CategoryFilterParams } from "@/types"
 
 export const categoryService = {
+  getPaged: async (params?: CategoryFilterParams): Promise<ApiResponse<Category[]>> => {
+    const res = await api.get<ApiResponse<Category[]>>("/api/categories", { params })
+    return res.data
+  },
+
   getAll: async (): Promise<ApiResponse<Category[]>> => {
-    const res = await api.get<ApiResponse<Category[]>>("/api/categories")
+    const res = await api.get<ApiResponse<Category[]>>("/api/categories/all")
     return res.data
   },
 

@@ -33,6 +33,10 @@ export interface StockSummary {
 
 export interface StockMovementFilterParams {
   productId?: number
+  type?: number
+  search?: string
   pageNumber?: number
   pageSize?: number
 }
+
+export type GetMovementsParams = StockMovementFilterParams

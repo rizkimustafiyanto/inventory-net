@@ -1,7 +1,12 @@
 import api from "@/lib/api/client"
-import type { ApiResponse, User, CreateUserPayload } from "@/types"
+import type { ApiResponse, User, CreateUserPayload, UserFilterParams } from "@/types"
 
 export const userService = {
+  getPaged: async (params?: UserFilterParams): Promise<ApiResponse<User[]>> => {
+    const res = await api.get<ApiResponse<User[]>>("/api/users", { params })
+    return res.data
+  },
+
   getAll: async (): Promise<ApiResponse<User[]>> => {
     const res = await api.get<ApiResponse<User[]>>("/api/users")
     return res.data

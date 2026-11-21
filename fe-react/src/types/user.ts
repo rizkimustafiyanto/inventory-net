@@ -22,3 +22,13 @@ export interface CreateUserPayload {
 export interface UpdateUserStatusPayload {
   isActive: boolean
 }
+
+export interface UserFilterParams {
+  pageNumber?: number
+  pageSize?: number
+  search?: string
+  role?: string
+  isActive?: boolean
+}
+
+export type GetUsersParams = UserFilterParams

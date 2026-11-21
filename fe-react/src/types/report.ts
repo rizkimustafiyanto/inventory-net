@@ -13,3 +13,12 @@ export interface StockReport {
   totalStockValue: number
   createdAt: string
 }
+
+export interface StockReportFilterParams {
+  date?: string
+  search?: string
+  pageNumber?: number
+  pageSize?: number
+}
+
+export type GetReportsParams = StockReportFilterParams

@@ -15,3 +15,11 @@ export interface UpdateCategoryPayload {
   name: string
   description?: string
 }
+
+export interface CategoryFilterParams {
+  pageNumber?: number
+  pageSize?: number
+  search?: string
+}
+
+export type GetCategoriesParams = CategoryFilterParams
