@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { formFieldStyles } from "@/theme/components/form-field.theme"
 
 export interface FormFieldProps extends React.ComponentProps<"div"> {
   label?: string
@@ -22,24 +23,24 @@ export function FormField({
   const hasError = Boolean(error)
 
   return (
-    <div className={cn("space-y-1.5", className)} {...props}>
+    <div className={cn(formFieldStyles.root, className)} {...props}>
       {label && (
-        <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1 select-none">
+        <label className={formFieldStyles.label}>
           <span>{label}</span>
-          {required && <span className="text-destructive font-bold">*</span>}
+          {required && <span className={formFieldStyles.requiredStar}>*</span>}
         </label>
       )}
 
       {children}
 
       {hasError && errorMessage && (
-        <p className="text-xs text-destructive font-medium animate-in fade-in-0 duration-150">
+        <p className={formFieldStyles.errorText}>
           {errorMessage}
         </p>
       )}
 
       {!hasError && hint && (
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p className={formFieldStyles.hintText}>{hint}</p>
       )}
     </div>
   )

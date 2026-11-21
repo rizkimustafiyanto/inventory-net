@@ -5,6 +5,7 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
+import { nativeSelectStyles } from "@/theme/components/select.theme"
 
 const Select = SelectPrimitive.Root
 
@@ -198,8 +199,8 @@ export function NativeSelect({ className, error, ...props }: NativeSelectProps) 
       data-slot="native-select"
       aria-invalid={hasError || undefined}
       className={cn(
-        "h-9 w-full min-w-0 rounded-xl border border-input bg-card px-3 py-1.5 text-sm text-foreground shadow-xs transition-all outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-        hasError && "border-destructive text-destructive focus-visible:border-destructive focus-visible:ring-destructive/30",
+        nativeSelectStyles.base,
+        hasError && nativeSelectStyles.error,
         className
       )}
       {...props}
