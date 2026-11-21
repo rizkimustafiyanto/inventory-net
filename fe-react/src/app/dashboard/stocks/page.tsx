@@ -3,13 +3,12 @@
 import { useEffect, useState, useCallback } from "react"
 import {
   ArrowLeftRight,
-  ArrowDownRight,
-  ArrowUpRight,
   RefreshCw,
-  PlusCircle,
-  Loader2,
+  Plus,
+  X,
   Calendar,
   FileText,
+  Search,
 } from "lucide-react"
 import { toast } from "sonner"
 import { DashboardShell } from "@/components/layout"
@@ -38,12 +37,18 @@ export default function StockMovementsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Pagination state
+  // Filter & Search state (Server-Side)
+  const [filterProductId, setFilterProductId] = useState<number | undefined>(undefined)
+  const [filterType, setFilterType] = useState<number>(0) // 0: Semua, 1: In, 2: Out, 3: Adjustment
+  const [search, setSearch] = useState("")
+
+  // Pagination state (Server-Side)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
 
-  // Form state
+  // Modal & Form state
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedProductId, setSelectedProductId] = useState<number>(0)
   const [movementType, setMovementType] = useState<StockMovementType>(1) // 1: In, 2: Out, 3: Adjustment
   const [quantity, setQuantity] = useState<number>(1)
@@ -55,7 +60,13 @@ export default function StockMovementsPage() {
     try {
       setLoading(true)
       const [movRes, prodRes] = await Promise.all([
-        stockService.getMovements(undefined, page, pageSize),
+        stockService.getMovements({
+          productId: filterProductId,
+          type: filterType > 0 ? filterType : undefined,
+          search: search.trim() || undefined,
+          pageNumber: page,
+          pageSize,
+        }),
         productService.getPaged({ pageSize: 100 }),
       ])
 
@@ -75,7 +86,7 @@ export default function StockMovementsPage() {
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, selectedProductId])
+  }, [page, pageSize, filterProductId, filterType, search, selectedProductId])
 
   useEffect(() => {
     loadData()
@@ -88,6 +99,16 @@ export default function StockMovementsPage() {
     if (movementType === 1) return selectedProduct.stockQuantity + quantity
     if (movementType === 2) return Math.max(0, selectedProduct.stockQuantity - quantity)
     return quantity // Adjustment
+  }
+
+  const openCreateModal = () => {
+    if (products.length > 0 && (!selectedProductId || selectedProductId === 0)) {
+      setSelectedProductId(products[0].id)
+    }
+    setQuantity(1)
+    setReason("")
+    setReferenceNumber("")
+    setIsModalOpen(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,6 +140,7 @@ export default function StockMovementsPage() {
 
       if (res.success) {
         toast.success("Mutasi stok berhasil dicatat!")
+        setIsModalOpen(false)
         setReason("")
         setReferenceNumber("")
         setQuantity(1)
@@ -136,135 +158,72 @@ export default function StockMovementsPage() {
 
   return (
     <DashboardShell title="Mutasi & Pergerakan Stok">
-      <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-        {/* Form Catat Mutasi */}
-        <div className="w-full">
-          <Card className="rounded-2xl border-slate-200 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-4 flex items-center gap-2">
-            <PlusCircle className="size-5 text-indigo-600" />
-            <h3 className="font-bold text-slate-900 dark:text-white">Catat Pergerakan Stok</h3>
+      <div className="space-y-6">
+        {/* Controls & Filter Bar */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              leftIcon={<Search className="size-4" />}
+              placeholder="Cari No. PO, alasan, SKU, petugas..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
+              className="w-64"
+            />
+
+            <NativeSelect
+              value={filterProductId || ""}
+              onChange={(e) => {
+                setFilterProductId(e.target.value ? Number(e.target.value) : undefined)
+                setPage(1)
+              }}
+              className="w-48"
+            >
+              <option value="">Semua Produk</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  [{p.sku}] {p.name}
+                </option>
+              ))}
+            </NativeSelect>
+
+            <NativeSelect
+              value={filterType}
+              onChange={(e) => {
+                setFilterType(Number(e.target.value))
+                setPage(1)
+              }}
+              className="w-40"
+            >
+              <option value={0}>Semua Tipe Mutasi</option>
+              <option value={1}>+ Barang Masuk</option>
+              <option value={2}>- Barang Keluar</option>
+              <option value={3}>⚙ Koreksi Opname</option>
+            </NativeSelect>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <FormField label="Pilih Produk" required>
-              <NativeSelect
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(Number(e.target.value))}
-                required
-              >
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    [{p.sku}] {p.name} (Sisa: {p.stockQuantity})
-                  </option>
-                ))}
-              </NativeSelect>
-            </FormField>
-
-            <FormField label="Tipe Pergerakan" required>
-              <div className="grid grid-cols-3 gap-2">
-                <Button
-                  type="button"
-                  variant={movementType === 1 ? "success" : "outline"}
-                  size="sm"
-                  onClick={() => setMovementType(1)}
-                  className="w-full text-xs"
-                >
-                  + Masuk
-                </Button>
-                <Button
-                  type="button"
-                  variant={movementType === 2 ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={() => setMovementType(2)}
-                  className="w-full text-xs"
-                >
-                  - Keluar
-                </Button>
-                <Button
-                  type="button"
-                  variant={movementType === 3 ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setMovementType(3)}
-                  className="w-full text-xs"
-                >
-                  ⚙ Koreksi
-                </Button>
-              </div>
-            </FormField>
-
-            <FormField
-              label={movementType === 3 ? "Stok Aktual Hasil Koreksi" : "Jumlah / Kuantitas"}
-              required
-            >
-              <Input
-                type="number"
-                min={0}
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-                required
-              />
-            </FormField>
-
-            {/* Live preview */}
-            {selectedProduct && (
-              <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Stok Saat Ini:</span>
-                  <span className="font-semibold text-foreground">{selectedProduct.stockQuantity}</span>
-                </div>
-                <div className="mt-1 flex justify-between text-muted-foreground">
-                  <span>Estimasi Stok Baru:</span>
-                  <span className="font-bold text-primary">{calculatePreviewStock()} unit</span>
-                </div>
-              </div>
-            )}
-
-            <FormField label="Alasan / Keterangan">
-              <Input
-                placeholder="Contoh: Penerimaan Supplier / Pembelian"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </FormField>
-
-            <FormField label="No. Referensi / PO / Faktur">
-              <Input
-                placeholder="Contoh: PO-2026-008"
-                value={referenceNumber}
-                onChange={(e) => setReferenceNumber(e.target.value)}
-              />
-            </FormField>
-
+          <div className="flex items-center gap-2">
             <Button
-              type="submit"
-              loading={submitting}
-              className="w-full py-5 font-semibold"
-            >
-              Simpan Mutasi
-            </Button>
-          </form>
-        </Card>
-      </div>
-
-      {/* Tabel Riwayat Mutasi */}
-      <div className="min-w-0 w-full">
-        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
-          <div className="flex items-center justify-between border-b border-border p-4">
-            <div className="flex items-center gap-2">
-              <ArrowLeftRight className="size-4 text-muted-foreground" />
-              <h3 className="font-semibold text-foreground">Riwayat Mutasi Stok Gudang</h3>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
+              variant="outline"
+              size="icon-sm"
               onClick={loadData}
               disabled={loading}
-              className="text-muted-foreground"
+              title="Segarkan Data"
+              icon={<RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />}
+            />
+            <Button
+              onClick={openCreateModal}
+              leftIcon={<Plus className="size-4" />}
             >
-              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+              Catat Mutasi Baru
             </Button>
           </div>
+        </div>
 
+        {/* Full-width Tabel Riwayat Mutasi */}
+        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
           <Table minWidth="800px" wrapHeader={false} wrapBody={false}>
             <TableHeader>
               <TableRow>
@@ -278,7 +237,15 @@ export default function StockMovementsPage() {
             </TableHeader>
             <TableBody>
               {movements.length === 0 ? (
-                <TableEmpty colSpan={6} loading={loading} message="Belum ada riwayat pergerakan stok." />
+                <TableEmpty
+                  colSpan={6}
+                  loading={loading}
+                  message={
+                    search || filterProductId || filterType > 0
+                      ? "Tidak ada riwayat pergerakan stok yang cocok dengan filter."
+                      : "Belum ada riwayat pergerakan stok."
+                  }
+                />
               ) : (
                 movements.map((m) => (
                   <TableRow key={m.id}>
@@ -297,24 +264,24 @@ export default function StockMovementsPage() {
                     <TableCell wrap={false} className="font-bold text-foreground">
                       {m.type === 1 ? `+${m.quantity}` : m.type === 2 ? `-${m.quantity}` : m.quantity}
                     </TableCell>
-                    <TableCell wrap={false} className="text-xs text-slate-500">
-                      {m.stockBefore} → <span className="font-semibold text-slate-800 dark:text-slate-200">{m.stockAfter}</span>
+                    <TableCell wrap={false} className="text-xs text-muted-foreground">
+                      {m.stockBefore} → <span className="font-semibold text-foreground">{m.stockAfter}</span>
                     </TableCell>
-                    <TableCell wrap={true} className="max-w-[220px] text-xs text-slate-600 dark:text-slate-300">
+                    <TableCell wrap={true} className="max-w-[220px] text-xs text-muted-foreground">
                       <div>{m.reason || "—"}</div>
                       {m.referenceNumber && (
-                        <div className="flex items-center gap-1 font-mono text-indigo-500">
+                        <div className="flex items-center gap-1 font-mono text-primary font-medium mt-0.5">
                           <FileText className="size-3" />
                           <span>{m.referenceNumber}</span>
                         </div>
                       )}
                     </TableCell>
-                    <TableCell wrap={false} className="text-xs text-slate-400">
+                    <TableCell wrap={false} className="text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="size-3" />
                         <span>{new Date(m.createdAt).toLocaleString("id-ID")}</span>
                       </div>
-                      <div className="text-[11px] text-slate-400">Oleh: {m.userName || "Petugas"}</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">Oleh: {m.userName || "Petugas"}</div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -322,6 +289,7 @@ export default function StockMovementsPage() {
             </TableBody>
           </Table>
 
+          {/* Server-Side Pagination */}
           <PaginationControl
             meta={meta}
             onPageChange={(p) => setPage(p)}
@@ -333,7 +301,134 @@ export default function StockMovementsPage() {
           />
         </Card>
       </div>
-    </div>
-  </DashboardShell>
+
+      {/* Pop-up Modal Catat Mutasi Baru */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <Card className="w-full max-w-lg overflow-hidden rounded-3xl border-border bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <div className="flex items-center gap-2">
+                <ArrowLeftRight className="size-5 text-primary" />
+                <h3 className="text-base font-bold text-foreground">Catat Pergerakan Stok</h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setIsModalOpen(false)}
+                icon={<X className="size-4" />}
+                title="Tutup"
+              />
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4 p-6">
+              <FormField label="Pilih Produk" required>
+                <NativeSelect
+                  value={selectedProductId}
+                  onChange={(e) => setSelectedProductId(Number(e.target.value))}
+                  required
+                >
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      [{p.sku}] {p.name} (Sisa: {p.stockQuantity})
+                    </option>
+                  ))}
+                </NativeSelect>
+              </FormField>
+
+              <FormField label="Tipe Pergerakan" required>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    variant={movementType === 1 ? "success" : "outline"}
+                    size="sm"
+                    onClick={() => setMovementType(1)}
+                    className="w-full text-xs"
+                  >
+                    + Masuk
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={movementType === 2 ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={() => setMovementType(2)}
+                    className="w-full text-xs"
+                  >
+                    - Keluar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={movementType === 3 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setMovementType(3)}
+                    className="w-full text-xs"
+                  >
+                    ⚙ Koreksi
+                  </Button>
+                </div>
+              </FormField>
+
+              <FormField
+                label={movementType === 3 ? "Stok Aktual Hasil Koreksi" : "Jumlah / Kuantitas"}
+                required
+              >
+                <Input
+                  type="number"
+                  min={0}
+                  value={quantity}
+                  onChange={(e) => setQuantity(Number(e.target.value))}
+                  required
+                />
+              </FormField>
+
+              {/* Live preview */}
+              {selectedProduct && (
+                <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Stok Saat Ini:</span>
+                    <span className="font-semibold text-foreground">{selectedProduct.stockQuantity}</span>
+                  </div>
+                  <div className="mt-1 flex justify-between text-muted-foreground">
+                    <span>Estimasi Stok Baru:</span>
+                    <span className="font-bold text-primary">{calculatePreviewStock()} unit</span>
+                  </div>
+                </div>
+              )}
+
+              <FormField label="Alasan / Keterangan">
+                <Input
+                  placeholder="Contoh: Penerimaan Supplier / Pengeluaran Penjualan"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </FormField>
+
+              <FormField label="No. Referensi / PO / Faktur">
+                <Input
+                  placeholder="Contoh: PO-2026-008"
+                  value={referenceNumber}
+                  onChange={(e) => setReferenceNumber(e.target.value)}
+                />
+              </FormField>
+
+              <div className="flex items-center justify-end gap-3 pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  loading={submitting}
+                >
+                  Simpan Mutasi
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+    </DashboardShell>
   )
 }

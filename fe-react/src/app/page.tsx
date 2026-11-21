@@ -57,9 +57,8 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-3">
             <Link href="/login">
-              <Button className="gap-2 rounded-xl">
-                <span>Masuk ke Sistem</span>
-                <ArrowRight className="size-4" />
+              <Button rightIcon={<ArrowRight className="size-4" />}>
+                Masuk ke Sistem
               </Button>
             </Link>
           </div>
@@ -90,15 +89,22 @@ export default function LandingPage() {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link href="/login">
-              <Button size="lg" className="gap-2 rounded-xl bg-indigo-600 px-6 py-6 text-base font-semibold hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none">
-                <span>Coba Aplikasi Sekarang</span>
-                <ArrowRight className="size-5" />
+              <Button
+                size="lg"
+                rightIcon={<ArrowRight className="size-5" />}
+                className="h-12 px-6 text-base font-semibold shadow-lg shadow-indigo-500/20"
+              >
+                Coba Aplikasi Sekarang
               </Button>
             </Link>
             <a href="http://localhost:8080/swagger" target="_blank" rel="noreferrer">
-              <Button size="lg" variant="outline" className="gap-2 rounded-xl px-6 py-6 text-base font-semibold">
-                <Server className="size-5 text-indigo-600" />
-                <span>Dokumentasi Swagger API</span>
+              <Button
+                size="lg"
+                variant="outline"
+                leftIcon={<Server className="size-5 text-indigo-600 dark:text-indigo-400" />}
+                className="h-12 px-6 text-base font-semibold"
+              >
+                Dokumentasi Swagger API
               </Button>
             </a>
           </div>

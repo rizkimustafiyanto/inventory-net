@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { LogOut, UserCircle } from "lucide-react"
+import { Globe, LogOut, UserCircle } from "lucide-react"
 import { useAuthStore } from "@/features/auth/store/auth.store"
 import { Button } from "@/components/ui"
 
@@ -24,7 +25,19 @@ export function DashboardTopbar({ title }: DashboardTopbarProps) {
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{title}</h2>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Navigasi cepat kembali ke Web Publik */}
+        <Link href="/">
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<Globe className="size-3.5" />}
+            title="Kunjungi Website Landing Page Publik"
+          >
+            Halaman Publik
+          </Button>
+        </Link>
+
         <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
           <UserCircle className="size-5 text-indigo-600 dark:text-indigo-400" />
           <span className="font-medium text-slate-900 dark:text-white">
@@ -39,10 +52,10 @@ export function DashboardTopbar({ title }: DashboardTopbarProps) {
           variant="outline"
           size="sm"
           onClick={handleLogout}
-          className="gap-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/50"
+          leftIcon={<LogOut className="size-4" />}
+          className="text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/50"
         >
-          <LogOut className="size-4" />
-          <span>Keluar</span>
+          Keluar
         </Button>
       </div>
     </header>

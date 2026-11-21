@@ -11,6 +11,7 @@ import {
   ArrowLeftRight,
   BarChart3,
   Users,
+  Globe,
 } from "lucide-react"
 import { Card } from "@/components/ui"
 import { useAuthStore } from "@/features/auth/store/auth.store"
@@ -94,6 +95,18 @@ export function DashboardShell({ title, children }: DashboardShellProps) {
                   )
                 })}
               </nav>
+
+              <div className="h-px bg-slate-100 dark:bg-slate-800" />
+
+              <div>
+                <Link
+                  href="/"
+                  className="flex items-center gap-3 rounded-xl px-3.5 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                >
+                  <Globe className="size-4 shrink-0 text-slate-400" />
+                  <span>Lihat Web Publik</span>
+                </Link>
+              </div>
 
               <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 text-xs text-indigo-900 dark:border-indigo-950 dark:bg-indigo-950/30 dark:text-indigo-300">
                 <p className="font-semibold">Backend .NET 8 + Oracle</p>

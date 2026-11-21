@@ -7,12 +7,14 @@ import {
   Shield,
   Trash2,
   RefreshCw,
-  Loader2,
   CheckCircle2,
   XCircle,
+  Search,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
 import { DashboardShell } from "@/components/layout"
+import { PaginationControl } from "@/components/shared"
 import {
   Badge,
   Button,
@@ -30,12 +32,20 @@ import {
 } from "@/components/ui"
 import { useAuthStore } from "@/features/auth/store/auth.store"
 import { userService } from "@/features/users/services/user.service"
-import type { User, CreateUserPayload } from "@/types"
+import type { User, CreateUserPayload, PaginationMeta } from "@/types"
 
 export default function UsersPage() {
   const { role } = useAuthStore()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Search, Filter & Pagination state (Server-Side)
+  const [search, setSearch] = useState("")
+  const [roleFilter, setRoleFilter] = useState<string>("")
+  const [statusFilter, setStatusFilter] = useState<string>("")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
 
   // Modal create
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -51,16 +61,23 @@ export default function UsersPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await userService.getAll()
+      const res = await userService.getPaged({
+        pageNumber: page,
+        pageSize,
+        search: search.trim() || undefined,
+        role: roleFilter || undefined,
+        isActive: statusFilter === "active" ? true : statusFilter === "inactive" ? false : undefined,
+      })
       if (res.success && res.data) {
         setUsers(res.data)
+        if (res.meta) setMeta(res.meta)
       }
     } catch {
       toast.error("Gagal memuat daftar pengguna")
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page, pageSize, search, roleFilter, statusFilter])
 
   useEffect(() => {
     loadData()
@@ -157,18 +174,46 @@ export default function UsersPage() {
   return (
     <DashboardShell title="Manajemen Pengguna (m_user)">
       <div className="space-y-6">
-        {/* Header Action */}
-        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-2">
-            <Users className="size-5 text-indigo-600" />
-            <div>
-              <h3 className="font-bold text-slate-900 dark:text-white">
-                Daftar Akun Pengguna ({users.length})
-              </h3>
-              <p className="text-xs text-slate-500">
-                Kelola hak akses role Admin, Staff Gudang, dan Supervisor
-              </p>
-            </div>
+        {/* Controls & Filter Bar */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              leftIcon={<Search className="size-4" />}
+              placeholder="Cari pengguna, nama, email..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
+              className="w-64"
+            />
+
+            <NativeSelect
+              value={roleFilter}
+              onChange={(e) => {
+                setRoleFilter(e.target.value)
+                setPage(1)
+              }}
+              className="w-40"
+            >
+              <option value="">Semua Peran</option>
+              <option value="Admin">Admin</option>
+              <option value="Staff">Staff Gudang</option>
+              <option value="Manager">Supervisor</option>
+            </NativeSelect>
+
+            <NativeSelect
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setPage(1)
+              }}
+              className="w-36"
+            >
+              <option value="">Semua Status</option>
+              <option value="active">Hanya Aktif</option>
+              <option value="inactive">Hanya Nonaktif</option>
+            </NativeSelect>
           </div>
 
           <div className="flex items-center gap-2">
@@ -205,7 +250,11 @@ export default function UsersPage() {
             </TableHeader>
             <TableBody>
               {users.length === 0 ? (
-                <TableEmpty colSpan={6} loading={loading} message="Belum ada data pengguna." />
+                <TableEmpty
+                  colSpan={6}
+                  loading={loading}
+                  message={search || roleFilter || statusFilter ? "Tidak ada akun pengguna yang cocok dengan filter." : "Belum ada data pengguna."}
+                />
               ) : (
                 users.map((u) => (
                   <TableRow key={u.id}>
@@ -281,11 +330,22 @@ export default function UsersPage() {
               )}
             </TableBody>
           </Table>
+
+          {/* Server-Side Pagination */}
+          <PaginationControl
+            meta={meta}
+            onPageChange={(p) => setPage(p)}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize)
+              setPage(1)
+            }}
+            disabled={loading}
+          />
         </Card>
 
         {/* Modal Tambah User */}
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
             <Card className="w-full max-w-md rounded-3xl border-border bg-card p-6 shadow-modal">
               <div className="mb-5 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -298,10 +358,9 @@ export default function UsersPage() {
                   variant="ghost"
                   size="icon-xs"
                   onClick={() => setIsModalOpen(false)}
-                  className="text-muted-foreground"
-                >
-                  ✕
-                </Button>
+                  icon={<X className="size-4" />}
+                  title="Tutup"
+                />
               </div>
 
               <form onSubmit={handleCreate} className="space-y-4">
@@ -311,6 +370,7 @@ export default function UsersPage() {
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
                     required
+                    autoFocus
                   />
                 </FormField>
 
