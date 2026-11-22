@@ -1,5 +1,7 @@
 using System.Text;
+using Inventory.Api.Hubs;
 using Inventory.Api.Middlewares;
+using Inventory.Api.Services;
 using Inventory.Application.Interfaces;
 using Inventory.Infrastructure;
 using Inventory.Infrastructure.Data;
@@ -9,10 +11,14 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add Infrastructure Services (DbContext, Repositories, Services, Security)
+// 1. Add Infrastructure Services (DbContext, Repositories, Services, Security, Redis)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
-// 2. Add JWT Authentication
+// 2. Add SignalR & Inventory Notification Service
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IInventoryNotificationService, InventoryNotificationService>();
+
+// 3. Add JWT Authentication (with SignalR query token extraction)
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "INVENTORY_NET_ULTRA_SECURE_JWT_SECRET_KEY_2026_TEST_KEY_MUST_BE_LONG!";
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "InventoryNetApi";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "InventoryNetClient";
@@ -37,6 +43,20 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
         ClockSkew = TimeSpan.Zero
     };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 builder.Services.AddAuthorization(options =>
@@ -47,14 +67,15 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AllStaff", policy => policy.RequireRole("Admin", "Staff", "Manager"));
 });
 
-// 3. Add CORS for Frontend
+// 4. Add CORS for Frontend (Supporting credentials for SignalR WebSockets)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -117,6 +138,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<InventoryHub>("/hubs/inventory");
 
 // Health Check Endpoint
 app.MapGet("/", () => Results.Ok(new
