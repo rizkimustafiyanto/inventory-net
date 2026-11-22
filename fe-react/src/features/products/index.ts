@@ -1,0 +1,6 @@
+export * from "./services/product.service"
+export * from "./hooks/use-products"
+export * from "./hooks/use-product-form"
+export * from "./components/product-filter-bar"
+export * from "./components/product-table"
+export * from "./components/product-modal"
