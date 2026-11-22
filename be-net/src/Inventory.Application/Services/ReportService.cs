@@ -22,6 +22,7 @@ public class ReportService : IReportService
         CancellationToken cancellationToken = default)
     {
         var targetDate = date?.Date ?? DateTime.UtcNow.Date;
+        var nextDate = targetDate.AddDays(1);
 
         // Auto-sync / generate snapshot from m_product & t_stock_movement into r_stock_summary
         var products = await _unitOfWork.Products.GetAllAsync(cancellationToken);
@@ -29,9 +30,12 @@ public class ReportService : IReportService
         var categoryMap = categories.ToDictionary(c => c.Id, c => c.Name);
         var movements = await _unitOfWork.StockMovements.GetAllAsync(cancellationToken);
         var existingReports = await _unitOfWork.StockReports.GetAllAsync(cancellationToken);
+
+        // Group by ProductId to prevent "An item with the same key has already been added"
         var existingMap = existingReports
-            .Where(r => r.ReportDate.Date == targetDate)
-            .ToDictionary(r => r.ProductId);
+            .Where(r => r.ReportDate >= targetDate && r.ReportDate < nextDate)
+            .GroupBy(r => r.ProductId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First());
 
         foreach (var p in products)
         {
@@ -78,7 +82,9 @@ public class ReportService : IReportService
 
         var updatedReports = await _unitOfWork.StockReports.GetAllAsync(cancellationToken);
         var list = updatedReports
-            .Where(r => r.ReportDate.Date == targetDate)
+            .Where(r => r.ReportDate >= targetDate && r.ReportDate < nextDate)
+            .GroupBy(r => r.ProductId)
+            .Select(g => g.OrderByDescending(x => x.Id).First())
             .OrderBy(r => r.ProductName)
             .Select(r => new StockReportDto
             {
@@ -112,13 +118,14 @@ public class ReportService : IReportService
         await GetStockSummaryReportsAsync(date, cancellationToken);
 
         var targetDate = date?.Date ?? DateTime.UtcNow.Date;
+        var nextDate = targetDate.AddDays(1);
         pageNumber = pageNumber <= 0 ? 1 : pageNumber;
         pageSize = Math.Clamp(pageSize <= 0 ? 10 : pageSize, 1, 100);
 
         var searchClean = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLower();
 
         Expression<Func<StockReport, bool>> predicate = r =>
-            r.ReportDate.Date == targetDate &&
+            r.ReportDate >= targetDate && r.ReportDate < nextDate &&
             (searchClean == null ||
              r.ProductName.ToLower().Contains(searchClean) ||
              r.ProductSku.ToLower().Contains(searchClean) ||
