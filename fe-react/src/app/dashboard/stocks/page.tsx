@@ -56,41 +56,51 @@ export default function StockMovementsPage() {
   const [referenceNumber, setReferenceNumber] = useState("")
   const [submitting, setSubmitting] = useState(false)
 
-  const loadData = useCallback(async () => {
+  const loadProducts = useCallback(async () => {
+    try {
+      const prodRes = await productService.getPaged({ pageSize: 100 })
+      if (prodRes.success && prodRes.data) {
+        setProducts(prodRes.data)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const loadMovements = useCallback(async () => {
     try {
       setLoading(true)
-      const [movRes, prodRes] = await Promise.all([
-        stockService.getMovements({
-          productId: filterProductId,
-          type: filterType > 0 ? filterType : undefined,
-          search: search.trim() || undefined,
-          pageNumber: page,
-          pageSize,
-        }),
-        productService.getPaged({ pageSize: 100 }),
-      ])
+      const movRes = await stockService.getMovements({
+        productId: filterProductId,
+        type: filterType > 0 ? filterType : undefined,
+        search: search.trim() || undefined,
+        pageNumber: page,
+        pageSize,
+      })
 
       if (movRes.success && movRes.data) {
         setMovements(movRes.data)
         if (movRes.meta) setMeta(movRes.meta)
-      }
-      if (prodRes.success && prodRes.data) {
-        const prodItems = prodRes.data
-        setProducts(prodItems)
-        if (selectedProductId === 0 && prodItems.length > 0) {
-          setSelectedProductId(prodItems[0].id)
-        }
       }
     } catch {
       toast.error("Gagal memuat data mutasi stok")
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, filterProductId, filterType, search, selectedProductId])
+  }, [page, pageSize, filterProductId, filterType, search])
+
+  const loadData = useCallback(() => {
+    loadProducts()
+    loadMovements()
+  }, [loadProducts, loadMovements])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    loadProducts()
+  }, [loadProducts])
+
+  useEffect(() => {
+    loadMovements()
+  }, [loadMovements])
 
   const selectedProduct = products.find((p) => p.id === selectedProductId)
 
@@ -102,7 +112,7 @@ export default function StockMovementsPage() {
   }
 
   const openCreateModal = () => {
-    if (products.length > 0 && (!selectedProductId || selectedProductId === 0)) {
+    if (products.length > 0) {
       setSelectedProductId(products[0].id)
     }
     setQuantity(1)

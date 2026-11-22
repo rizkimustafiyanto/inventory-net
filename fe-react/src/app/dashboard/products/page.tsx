@@ -62,41 +62,64 @@ export default function ProductsPage() {
     categoryId: 0,
   })
 
-  const loadData = useCallback(async () => {
+  const loadCategories = useCallback(async () => {
+    try {
+      const catRes = await categoryService.getAll()
+      if (catRes.success && catRes.data) {
+        setCategories(catRes.data)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const loadProducts = useCallback(async () => {
     try {
       setLoading(true)
-      const [prodRes, catRes] = await Promise.all([
-        productService.getPaged({
-          pageNumber: page,
-          pageSize,
-          search: search.trim() || undefined,
-          categoryId: selectedCategoryId,
-          lowStockOnly: lowStockOnly || undefined,
-        }),
-        categoryService.getAll(),
-      ])
+      const prodRes = await productService.getPaged({
+        pageNumber: page,
+        pageSize,
+        search: search.trim() || undefined,
+        categoryId: selectedCategoryId,
+        lowStockOnly: lowStockOnly || undefined,
+      })
 
       if (prodRes.success && prodRes.data) {
         setProducts(prodRes.data)
         if (prodRes.meta) setMeta(prodRes.meta)
-      }
-      if (catRes.success && catRes.data) {
-        const catList = catRes.data
-        setCategories(catList)
-        if (form.categoryId === 0 && catList.length > 0) {
-          setForm((prev) => ({ ...prev, categoryId: catList[0].id }))
-        }
       }
     } catch {
       toast.error("Gagal memuat data produk")
     } finally {
       setLoading(false)
     }
-  }, [page, pageSize, search, selectedCategoryId, lowStockOnly, form.categoryId])
+  }, [page, pageSize, search, selectedCategoryId, lowStockOnly])
+
+  const loadData = useCallback(() => {
+    loadCategories()
+    loadProducts()
+  }, [loadCategories, loadProducts])
 
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    loadCategories()
+  }, [loadCategories])
+
+  useEffect(() => {
+    loadProducts()
+  }, [loadProducts])
+
+  const openCreateModal = () => {
+    setForm({
+      sku: "",
+      name: "",
+      description: "",
+      price: 0,
+      initialStock: 0,
+      minStockLevel: 5,
+      categoryId: categories[0]?.id || 0,
+    })
+    setIsModalOpen(true)
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -203,7 +226,7 @@ export default function ProductsPage() {
             />
             <Button
               size="sm"
-              onClick={() => setIsModalOpen(true)}
+              onClick={openCreateModal}
               leftIcon={<Plus className="size-4" />}
             >
               Tambah Produk

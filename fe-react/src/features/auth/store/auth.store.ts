@@ -16,7 +16,7 @@ type AuthState = {
   initAuth: () => void
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   token: null,
   role: null,
   user: null,
@@ -57,6 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   initAuth: () => {
     if (typeof window === "undefined") return
+    if (get().isAuthenticated) return
 
     const token = localStorage.getItem(TOKEN_STORAGE_KEY)
     const role = localStorage.getItem(ROLE_STORAGE_KEY)

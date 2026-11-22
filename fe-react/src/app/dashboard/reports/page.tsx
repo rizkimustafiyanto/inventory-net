@@ -40,24 +40,29 @@ export default function ReportsPage() {
   const [pageSize, setPageSize] = useState(10)
   const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
 
-  const loadData = useCallback(async () => {
+  const loadKpis = useCallback(async () => {
+    try {
+      const allRes = await reportService.getAllStockSummary()
+      if (allRes.success && allRes.data) {
+        setAllReports(allRes.data)
+      }
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const loadPagedReports = useCallback(async () => {
     try {
       setLoading(true)
-      const [pagedRes, allRes] = await Promise.all([
-        reportService.getPagedStockSummary({
-          pageNumber: page,
-          pageSize,
-          search: search.trim() || undefined,
-        }),
-        reportService.getAllStockSummary(),
-      ])
+      const pagedRes = await reportService.getPagedStockSummary({
+        pageNumber: page,
+        pageSize,
+        search: search.trim() || undefined,
+      })
 
       if (pagedRes.success && pagedRes.data) {
         setReports(pagedRes.data)
         if (pagedRes.meta) setMeta(pagedRes.meta)
-      }
-      if (allRes.success && allRes.data) {
-        setAllReports(allRes.data)
       }
     } catch {
       toast.error("Gagal memuat data laporan")
@@ -66,9 +71,18 @@ export default function ReportsPage() {
     }
   }, [page, pageSize, search])
 
+  const loadData = useCallback(() => {
+    loadKpis()
+    loadPagedReports()
+  }, [loadKpis, loadPagedReports])
+
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    loadKpis()
+  }, [loadKpis])
+
+  useEffect(() => {
+    loadPagedReports()
+  }, [loadPagedReports])
 
   // Summary Metrics (dihitung dari seluruh snapshot server)
   const totalValuation = allReports.reduce((acc, r) => acc + (r.totalStockValue || 0), 0)
