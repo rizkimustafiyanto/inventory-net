@@ -14,10 +14,17 @@ public class StockService : IStockService
     private const int MaxMovementPageSize = 100;
 
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IDistributedLockService _lockService;
+    private readonly IInventoryNotificationService _notificationService;
 
-    public StockService(IUnitOfWork unitOfWork)
+    public StockService(
+        IUnitOfWork unitOfWork,
+        IDistributedLockService lockService,
+        IInventoryNotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
+        _lockService = lockService;
+        _notificationService = notificationService;
     }
 
     public async Task<ApiResponse<StockMovementDto>> RecordMovementAsync(
@@ -27,6 +34,19 @@ public class StockService : IStockService
     {
         if (dto.Quantity < 0)
             return ApiResponse<StockMovementDto>.Fail("Quantity cannot be negative");
+
+        // 1. Acquire Redis distributed lock per product to serialize concurrent mutations and prevent race conditions
+        var lockResource = $"product:{dto.ProductId}";
+        using var lockHandle = await _lockService.AcquireLockAsync(
+            lockResource,
+            timeout: TimeSpan.FromSeconds(5),
+            expiry: TimeSpan.FromSeconds(10),
+            cancellationToken);
+
+        if (lockHandle == null)
+        {
+            return ApiResponse<StockMovementDto>.Fail("Sistem sedang memproses transaksi untuk produk ini secara bersamaan. Silakan coba sesaat lagi.");
+        }
 
         var product = await _unitOfWork.Products.GetByIdAsync(dto.ProductId, cancellationToken);
         if (product == null)
@@ -97,6 +117,22 @@ public class StockService : IStockService
             UserName = user?.FullName ?? user?.Username ?? "System",
             CreatedAt = movement.CreatedAt
         };
+
+        // 2. Real-time broadcast to all connected clients via WebSocket (SignalR)
+        var stockStatus = product.StockQuantity <= 0 ? "Out of Stock" : (product.StockQuantity <= product.MinStockLevel ? "Low Stock" : "In Stock");
+        await _notificationService.BroadcastStockMovementAsync(resultDto, cancellationToken);
+        await _notificationService.BroadcastProductStockUpdateAsync(product.Id, product.StockQuantity, stockStatus, cancellationToken);
+
+        if (product.StockQuantity <= product.MinStockLevel)
+        {
+            await _notificationService.BroadcastLowStockAlertAsync(
+                product.Id,
+                product.Sku,
+                product.Name,
+                product.StockQuantity,
+                product.MinStockLevel,
+                cancellationToken);
+        }
 
         return ApiResponse<StockMovementDto>.Ok(resultDto, "Stock movement recorded successfully");
     }

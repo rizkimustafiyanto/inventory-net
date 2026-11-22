@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using FluentAssertions;
 using Inventory.Application.DTOs.Stock;
+using Inventory.Application.Interfaces;
 using Inventory.Application.Services;
 using Inventory.Domain.Entities;
 using Inventory.Domain.Enums;
@@ -16,6 +17,8 @@ public class StockServiceTests
     private readonly Mock<IRepository<Product>> _productRepoMock;
     private readonly Mock<IRepository<StockMovement>> _stockMovementRepoMock;
     private readonly Mock<IRepository<User>> _userRepoMock;
+    private readonly Mock<IDistributedLockService> _lockServiceMock;
+    private readonly Mock<IInventoryNotificationService> _notificationServiceMock;
     private readonly StockService _sut; // System Under Test
 
     public StockServiceTests()
@@ -24,12 +27,22 @@ public class StockServiceTests
         _productRepoMock = new Mock<IRepository<Product>>();
         _stockMovementRepoMock = new Mock<IRepository<StockMovement>>();
         _userRepoMock = new Mock<IRepository<User>>();
+        _lockServiceMock = new Mock<IDistributedLockService>();
+        _notificationServiceMock = new Mock<IInventoryNotificationService>();
 
         _unitOfWorkMock.Setup(u => u.Products).Returns(_productRepoMock.Object);
         _unitOfWorkMock.Setup(u => u.StockMovements).Returns(_stockMovementRepoMock.Object);
         _unitOfWorkMock.Setup(u => u.Users).Returns(_userRepoMock.Object);
 
-        _sut = new StockService(_unitOfWorkMock.Object);
+        var disposableMock = new Mock<IDisposable>();
+        _lockServiceMock.Setup(l => l.AcquireLockAsync(
+            It.IsAny<string>(),
+            It.IsAny<TimeSpan>(),
+            It.IsAny<TimeSpan>(),
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(disposableMock.Object);
+
+        _sut = new StockService(_unitOfWorkMock.Object, _lockServiceMock.Object, _notificationServiceMock.Object);
     }
 
     [Fact]
