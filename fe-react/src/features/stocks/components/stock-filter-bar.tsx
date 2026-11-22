@@ -31,13 +31,13 @@ export function StockFilterBar({
 }: StockFilterBarProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-1 flex-wrap items-center gap-3">
         <Input
           leftIcon={<Search className="size-4" />}
           placeholder="Cari No. PO, alasan, SKU, petugas..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-64"
+          className="w-full sm:w-64 lg:w-72"
         />
 
         <NativeSelect
@@ -45,7 +45,7 @@ export function StockFilterBar({
           onChange={(e) =>
             onProductFilterChange(e.target.value ? Number(e.target.value) : undefined)
           }
-          className="w-48"
+          className="w-full sm:w-48"
         >
           <option value="">Semua Produk</option>
           {products.map((p) => (
@@ -58,7 +58,7 @@ export function StockFilterBar({
         <NativeSelect
           value={filterType}
           onChange={(e) => onTypeFilterChange(Number(e.target.value))}
-          className="w-40"
+          className="w-full sm:w-44"
         >
           <option value={0}>Semua Tipe Mutasi</option>
           <option value={1}>+ Barang Masuk</option>
@@ -70,11 +70,11 @@ export function StockFilterBar({
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
-          size="icon-sm"
+          size="icon"
           onClick={onRefresh}
           disabled={loading}
           title="Segarkan Data"
-          icon={<RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />}
+          icon={<RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />}
         />
         <Button onClick={onAddNew} leftIcon={<Plus className="size-4" />}>
           Catat Mutasi Baru

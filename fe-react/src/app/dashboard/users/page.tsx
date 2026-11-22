@@ -2,6 +2,7 @@
 
 import { Shield } from "lucide-react"
 import { DashboardShell } from "@/components/layout"
+import { PaginationControl } from "@/components/shared"
 import { Card } from "@/components/ui"
 import { useAuthStore } from "@/features/auth/store/auth.store"
 import {
@@ -62,18 +63,26 @@ export default function UsersPage() {
           onAddNew={form.openModal}
         />
 
-        <UserTable
-          users={users}
-          loading={loading}
-          search={search}
-          roleFilter={roleFilter}
-          statusFilter={statusFilter}
-          meta={meta}
-          onPageChange={setPage}
-          onPageSizeChange={handlePageSizeChange}
-          onToggleStatus={handleToggleStatus}
-          onDelete={handleDelete}
-        />
+        {/* Presentational Table Component */}
+        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
+          <UserTable
+            users={users}
+            loading={loading}
+            search={search}
+            roleFilter={roleFilter}
+            statusFilter={statusFilter}
+            onToggleStatus={handleToggleStatus}
+            onDelete={handleDelete}
+          />
+
+          {/* Pagination */}
+          <PaginationControl
+            meta={meta}
+            onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={loading}
+          />
+        </Card>
       </div>
 
       <UserModal

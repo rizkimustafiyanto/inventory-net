@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { productService } from "../services/product.service"
 import { categoryService } from "@/features/categories/services/category.service"
 import { useDebounce } from "@/hooks"
+import { useInventorySocket } from "@/lib/socket"
 import type { Product, Category, PaginationMeta } from "@/types"
 
 export function useProducts() {
@@ -17,9 +18,15 @@ export function useProducts() {
   const [lowStockOnly, setLowStockOnly] = useState(false)
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 350)
+  const [prevSearch, setPrevSearch] = useState(debouncedSearch)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
+
+  if (debouncedSearch !== prevSearch) {
+    setPrevSearch(debouncedSearch)
+    setPage(1)
+  }
 
   const loadCategories = useCallback(async () => {
     try {
@@ -59,6 +66,22 @@ export function useProducts() {
     loadProducts()
   }, [loadCategories, loadProducts])
 
+  const { subscribeStockUpdate } = useInventorySocket()
+
+  // Real-time SignalR WebSocket subscription for live stock updates
+  useEffect(() => {
+    const unsubscribe = subscribeStockUpdate((update) => {
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === update.productId
+            ? { ...p, stockQuantity: update.newStock }
+            : p
+        )
+      )
+    })
+    return unsubscribe
+  }, [subscribeStockUpdate])
+
   useEffect(() => {
     loadCategories()
   }, [loadCategories])
@@ -69,7 +92,6 @@ export function useProducts() {
 
   const handleSearchChange = (value: string) => {
     setSearch(value)
-    setPage(1)
   }
 
   const handleCategoryFilterChange = (catId?: number) => {

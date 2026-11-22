@@ -1,6 +1,8 @@
 "use client"
 
 import { DashboardShell } from "@/components/layout"
+import { PaginationControl } from "@/components/shared"
+import { Card } from "@/components/ui"
 import {
   useStockMovements,
   useStockMovementForm,
@@ -45,16 +47,24 @@ export default function StockMovementsPage() {
           onAddNew={form.openModal}
         />
 
-        <StockMovementTable
-          movements={movements}
-          loading={loading}
-          search={search}
-          filterProductId={filterProductId}
-          filterType={filterType}
-          meta={meta}
-          onPageChange={setPage}
-          onPageSizeChange={handlePageSizeChange}
-        />
+        {/* Presentational Table Component */}
+        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
+          <StockMovementTable
+            movements={movements}
+            loading={loading}
+            search={search}
+            filterProductId={filterProductId}
+            filterType={filterType}
+          />
+
+          {/* Pagination */}
+          <PaginationControl
+            meta={meta}
+            onPageChange={setPage}
+            onPageSizeChange={handlePageSizeChange}
+            disabled={loading}
+          />
+        </Card>
       </div>
 
       <StockMovementModal

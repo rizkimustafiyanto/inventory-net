@@ -28,19 +28,19 @@ export function UserFilterBar({
 }: UserFilterBarProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-1 flex-wrap items-center gap-3">
         <Input
           leftIcon={<Search className="size-4" />}
           placeholder="Cari pengguna, nama, email..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-64"
+          className="w-full sm:w-64 lg:w-72"
         />
 
         <NativeSelect
           value={roleFilter}
           onChange={(e) => onRoleFilterChange(e.target.value)}
-          className="w-40"
+          className="w-full sm:w-40"
         >
           <option value="">Semua Peran</option>
           <option value="Admin">Admin</option>
@@ -51,7 +51,7 @@ export function UserFilterBar({
         <NativeSelect
           value={statusFilter}
           onChange={(e) => onStatusFilterChange(e.target.value)}
-          className="w-36"
+          className="w-full sm:w-36"
         >
           <option value="">Semua Status</option>
           <option value="active">Hanya Aktif</option>
@@ -62,13 +62,13 @@ export function UserFilterBar({
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
-          size="icon-sm"
+          size="icon"
           onClick={onRefresh}
           disabled={loading}
           title="Segarkan Data"
-          icon={<RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />}
+          icon={<RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />}
         />
-        <Button size="sm" onClick={onAddNew} leftIcon={<UserPlus className="size-4" />}>
+        <Button onClick={onAddNew} leftIcon={<UserPlus className="size-4" />}>
           Tambah Pengguna
         </Button>
       </div>

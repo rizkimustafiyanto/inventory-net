@@ -44,13 +44,13 @@ export function ProductFilterBar({
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-1 flex-wrap items-center gap-3">
         <Input
           leftIcon={<Search className="size-4" />}
-          placeholder="Cari SKU atau nama..."
+          placeholder="Cari SKU atau nama produk..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-64"
+          className="w-full sm:w-64 lg:w-72"
         />
 
         <NativeSelect
@@ -58,7 +58,7 @@ export function ProductFilterBar({
           onChange={(e) =>
             handleCategoryChange?.(e.target.value ? Number(e.target.value) : undefined)
           }
-          className="w-44"
+          className="w-full sm:w-48"
         >
           <option value="">Semua Kategori</option>
           {categories.map((c) => (
@@ -70,9 +70,8 @@ export function ProductFilterBar({
 
         <Button
           variant={lowStockOnly ? "default" : "outline"}
-          size="sm"
           onClick={() => handleToggle?.()}
-          leftIcon={<AlertCircle className="size-3.5" />}
+          leftIcon={<AlertCircle className="size-4" />}
         >
           Hanya Stok Tipis
         </Button>
@@ -81,14 +80,13 @@ export function ProductFilterBar({
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
-          size="icon-sm"
+          size="icon"
           onClick={onRefresh}
           disabled={loading}
           title="Segarkan Data"
-          icon={<RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />}
+          icon={<RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />}
         />
         <Button
-          size="sm"
           onClick={() => handleAdd?.()}
           leftIcon={<Plus className="size-4" />}
         >

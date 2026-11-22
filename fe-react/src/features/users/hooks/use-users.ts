@@ -13,11 +13,17 @@ export function useUsers() {
   // Search, Filter & Pagination state (Server-Side)
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 350)
+  const [prevSearch, setPrevSearch] = useState(debouncedSearch)
   const [roleFilter, setRoleFilter] = useState<string>("")
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
+
+  if (debouncedSearch !== prevSearch) {
+    setPrevSearch(debouncedSearch)
+    setPage(1)
+  }
 
   const loadUsers = useCallback(async () => {
     try {
@@ -47,7 +53,6 @@ export function useUsers() {
 
   const handleSearchChange = (value: string) => {
     setSearch(value)
-    setPage(1)
   }
 
   const handleRoleFilterChange = (role: string) => {

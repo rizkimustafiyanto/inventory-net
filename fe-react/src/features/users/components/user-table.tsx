@@ -1,11 +1,9 @@
 "use client"
 
 import { Trash2, CheckCircle2, XCircle } from "lucide-react"
-import { PaginationControl } from "@/components/shared"
 import {
   Badge,
   Button,
-  Card,
   Table,
   TableHeader,
   TableBody,
@@ -14,7 +12,7 @@ import {
   TableCell,
   TableEmpty,
 } from "@/components/ui"
-import type { User, PaginationMeta } from "@/types"
+import type { User } from "@/types"
 
 interface UserTableProps {
   users: User[]
@@ -22,9 +20,6 @@ interface UserTableProps {
   search: string
   roleFilter: string
   statusFilter: string
-  meta?: PaginationMeta
-  onPageChange: (page: number) => void
-  onPageSizeChange: (pageSize: number) => void
   onToggleStatus: (user: User) => void
   onDelete: (user: User) => void
 }
@@ -35,15 +30,11 @@ export function UserTable({
   search,
   roleFilter,
   statusFilter,
-  meta,
-  onPageChange,
-  onPageSizeChange,
   onToggleStatus,
   onDelete,
 }: UserTableProps) {
   return (
-    <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
-      <Table minWidth="750px">
+    <Table minWidth="750px">
         <TableHeader>
           <TableRow>
             <TableHead>Pengguna</TableHead>
@@ -140,14 +131,5 @@ export function UserTable({
           )}
         </TableBody>
       </Table>
-
-      {/* Server-Side Pagination */}
-      <PaginationControl
-        meta={meta}
-        onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
-        disabled={loading}
-      />
-    </Card>
   )
 }

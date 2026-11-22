@@ -195,16 +195,18 @@ export interface NativeSelectProps extends React.ComponentProps<"select"> {
 export function NativeSelect({ className, error, ...props }: NativeSelectProps) {
   const hasError = Boolean(error)
   return (
-    <select
-      data-slot="native-select"
-      aria-invalid={hasError || undefined}
-      className={cn(
-        nativeSelectStyles.base,
-        hasError && nativeSelectStyles.error,
-        className
-      )}
-      {...props}
-    />
+    <div className={cn(nativeSelectStyles.wrapper, className)}>
+      <select
+        data-slot="native-select"
+        aria-invalid={hasError || undefined}
+        className={cn(
+          nativeSelectStyles.base,
+          hasError && nativeSelectStyles.error
+        )}
+        {...props}
+      />
+      <ChevronDownIcon className={nativeSelectStyles.icon} />
+    </div>
   )
 }
 

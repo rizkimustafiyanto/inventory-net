@@ -14,9 +14,15 @@ export function useStockReports() {
   // Search & Pagination state (Server-Side)
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 350)
+  const [prevSearch, setPrevSearch] = useState(debouncedSearch)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [meta, setMeta] = useState<PaginationMeta | undefined>(undefined)
+
+  if (debouncedSearch !== prevSearch) {
+    setPrevSearch(debouncedSearch)
+    setPage(1)
+  }
 
   const loadKpis = useCallback(async () => {
     try {
@@ -71,7 +77,6 @@ export function useStockReports() {
 
   const handleSearchChange = (value: string) => {
     setSearch(value)
-    setPage(1)
   }
 
   const handlePageSizeChange = (newSize: number) => {

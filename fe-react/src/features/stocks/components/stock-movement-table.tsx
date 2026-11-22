@@ -1,10 +1,8 @@
 "use client"
 
 import { Calendar, FileText } from "lucide-react"
-import { PaginationControl } from "@/components/shared"
 import {
   Badge,
-  Card,
   Table,
   TableHeader,
   TableBody,
@@ -13,7 +11,7 @@ import {
   TableCell,
   TableEmpty,
 } from "@/components/ui"
-import type { StockMovement, PaginationMeta } from "@/types"
+import type { StockMovement } from "@/types"
 
 interface StockMovementTableProps {
   movements: StockMovement[]
@@ -21,9 +19,6 @@ interface StockMovementTableProps {
   search: string
   filterProductId?: number
   filterType: number
-  meta?: PaginationMeta
-  onPageChange: (page: number) => void
-  onPageSizeChange: (pageSize: number) => void
 }
 
 export function StockMovementTable({
@@ -32,13 +27,9 @@ export function StockMovementTable({
   search,
   filterProductId,
   filterType,
-  meta,
-  onPageChange,
-  onPageSizeChange,
 }: StockMovementTableProps) {
   return (
-    <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
-      <Table minWidth="800px" wrapHeader={false} wrapBody={false}>
+    <Table minWidth="800px" wrapHeader={false} wrapBody={false}>
         <TableHeader>
           <TableRow>
             <TableHead>Produk</TableHead>
@@ -104,14 +95,5 @@ export function StockMovementTable({
           )}
         </TableBody>
       </Table>
-
-      {/* Server-Side Pagination */}
-      <PaginationControl
-        meta={meta}
-        onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
-        disabled={loading}
-      />
-    </Card>
   )
 }

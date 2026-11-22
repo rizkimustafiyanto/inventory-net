@@ -44,17 +44,17 @@ export default function CategoriesPage() {
   return (
     <DashboardShell title="Kategori Barang">
       <div className="space-y-6">
-        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
-          {/* Filter Bar Component */}
-          <CategoryFilterBar
-            search={search}
-            onSearchChange={handleSearchChange}
-            loading={loading}
-            onRefresh={reload}
-            onAddNew={openCreateModal}
-          />
+        {/* Controls & Filter Bar Component */}
+        <CategoryFilterBar
+          search={search}
+          onSearchChange={handleSearchChange}
+          loading={loading}
+          onRefresh={reload}
+          onAddNew={openCreateModal}
+        />
 
-          {/* Presentational Table Component */}
+        {/* Presentational Table Component */}
+        <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
           <CategoryTable
             categories={categories}
             loading={loading}

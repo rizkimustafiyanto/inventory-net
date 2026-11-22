@@ -1,8 +1,6 @@
 "use client"
 
-import { PaginationControl } from "@/components/shared"
 import {
-  Card,
   Table,
   TableHeader,
   TableBody,
@@ -11,28 +9,21 @@ import {
   TableCell,
   TableEmpty,
 } from "@/components/ui"
-import type { StockReport, PaginationMeta } from "@/types"
+import type { StockReport } from "@/types"
 
 interface ReportTableProps {
   reports: StockReport[]
   loading: boolean
   search: string
-  meta?: PaginationMeta
-  onPageChange: (page: number) => void
-  onPageSizeChange: (pageSize: number) => void
 }
 
 export function ReportTable({
   reports,
   loading,
   search,
-  meta,
-  onPageChange,
-  onPageSizeChange,
 }: ReportTableProps) {
   return (
-    <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
-      <Table minWidth="950px" wrapHeader={false} wrapBody={false}>
+    <Table minWidth="950px" wrapHeader={false} wrapBody={false}>
         <TableHeader>
           <TableRow>
             <TableHead>Tanggal</TableHead>
@@ -105,14 +96,5 @@ export function ReportTable({
           )}
         </TableBody>
       </Table>
-
-      {/* Server-Side Pagination */}
-      <PaginationControl
-        meta={meta}
-        onPageChange={onPageChange}
-        onPageSizeChange={onPageSizeChange}
-        disabled={loading}
-      />
-    </Card>
   )
 }

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { stockService } from "@/features/stocks/services/stock.service"
 import { productService } from "@/features/products/services/product.service"
+import { useInventorySocket } from "@/lib/socket"
 import type { StockSummary, StockMovement, Product } from "@/types"
 
 export function useDashboardOverview() {
@@ -11,10 +12,11 @@ export function useDashboardOverview() {
   const [recentMovements, setRecentMovements] = useState<StockMovement[]>([])
   const [lowStockProducts, setLowStockProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const { subscribeStockMovement, subscribeStockUpdate } = useInventorySocket()
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const [sumRes, movRes, lowRes] = await Promise.all([
         stockService.getSummary(),
         stockService.getMovements({ pageNumber: 1, pageSize: 5 }),
@@ -25,9 +27,9 @@ export function useDashboardOverview() {
       if (movRes.success && movRes.data) setRecentMovements(movRes.data)
       if (lowRes.success && lowRes.data) setLowStockProducts(lowRes.data)
     } catch {
-      toast.error("Gagal memuat data ringkasan inventaris")
+      if (!silent) toast.error("Gagal memuat data ringkasan inventaris")
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [])
 
@@ -35,11 +37,25 @@ export function useDashboardOverview() {
     fetchData()
   }, [fetchData])
 
+  // Real-time synchronization for Dashboard KPIs and recent movements
+  useEffect(() => {
+    const unsubMovement = subscribeStockMovement(() => {
+      fetchData(true)
+    })
+    const unsubUpdate = subscribeStockUpdate(() => {
+      fetchData(true)
+    })
+    return () => {
+      unsubMovement()
+      unsubUpdate()
+    }
+  }, [subscribeStockMovement, subscribeStockUpdate, fetchData])
+
   return {
     summary,
     recentMovements,
     lowStockProducts,
     loading,
-    reload: fetchData,
+    reload: () => fetchData(false),
   }
 }
