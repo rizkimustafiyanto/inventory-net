@@ -1,0 +1,115 @@
+name: Database Restore
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Pilih Target Environment untuk di-restore'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - 'staging'
+          - 'production'
+      backup_file_name:
+        description: 'Nama file backup yang ada di server (contoh: backup_production_20261122_020015.dmp.gz)'
+        required: true
+      confirm_text:
+        description: 'Ketik "RESTORE-CONFIRM" untuk verifikasi eksekusi restore'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-restore-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  validate-guard:
+    name: Validate Security Confirmation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Confirmation Text
+        run: |
+          if [ "${{ github.event.inputs.confirm_text }}" != "RESTORE-CONFIRM" ]; then
+            echo "::error::Restore dibatalkan! Input konfirmasi harus persis 'RESTORE-CONFIRM'."
+            exit 1
+          fi
+
+  restore:
+    name: Execute Database Restore
+    needs: validate-guard
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Required Secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_HOST:-}" ] || [ -z "${VPS_USER:-}" ] || [ -z "${VPS_SSH_KEY:-}" ] || [ -z "${VPS_PATH:-}" ]; then
+            echo "::error::Missing VPS secrets in target Environment. Required: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_PATH."
+            exit 1
+          fi
+
+      - name: Setup SSH Key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Execute Restore on VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          TARGET_ENV: ${{ github.event.inputs.environment }}
+          BACKUP_FILE_NAME: ${{ github.event.inputs.backup_file_name }}
+        run: |
+          set -euo pipefail
+          echo "[restore] Connecting to VPS ${VPS_HOST}..."
+
+          if [ "${TARGET_ENV}" = "staging" ]; then
+            CONTAINER_NAME="inventory-staging-oracle"
+          else
+            CONTAINER_NAME="inventory-oracle"
+          fi
+
+          # Upload restore script ke VPS
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/backup/restore-oracle.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/restore-oracle.sh"
+
+          # Eksekusi restore
+          FULL_BACKUP_PATH="${VPS_PATH}/backups/${BACKUP_FILE_NAME}"
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "chmod +x ${VPS_PATH}/restore-oracle.sh && \
+             CONTAINER_NAME=${CONTAINER_NAME} \
+             VPS_PATH=${VPS_PATH} \
+             bash ${VPS_PATH}/restore-oracle.sh '${FULL_BACKUP_PATH}'"
+
+      - name: Send Notification to Telegram Bot
+        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TARGET_ENV: ${{ github.event.inputs.environment }}
+          BACKUP_FILE_NAME: ${{ github.event.inputs.backup_file_name }}
+        run: |
+          set -euo pipefail
+          RESTORE_TIME=$(TZ="Asia/Jakarta" date +"%Y-%m-%d %H:%M:%S WIB")
+
+          MESSAGE="♻️ <b>[DATABASE RESTORE] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Target Env :</b> <code>${TARGET_ENV}</code>%0A📅 <b>Waktu     :</b> <code>${RESTORE_TIME}</code>%0A📂 <b>Source File:</b> <code>${BACKUP_FILE_NAME}</code>%0A👤 <b>Actor     :</b> ${{ github.actor }}%0A✅ <b>Status    :</b> Database Berhasil Di-restore!%0A━━━━━━━━━━━━━━━━━━━━"
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "text=$(printf '%b' "${MESSAGE}")" \
+            -d "parse_mode=HTML" > /dev/null
+          echo "[telegram] Notifikasi restore terkirim ke Telegram."

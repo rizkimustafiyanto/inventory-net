@@ -245,3 +245,24 @@ jobs:
             fi &&
             sudo certbot --nginx --non-interactive --agree-tos --keep-until-expiring --expand -m ${CERTBOT_EMAIL} $(printf -- '-d %s ' ${CERTBOT_DOMAINS}) &&
             sudo systemctl reload nginx"
+
+      - name: Send Deployment Notification to Telegram
+        if: ${{ always() && secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          DEPLOY_TIME=$(TZ="Asia/Jakarta" date +"%Y-%m-%d %H:%M:%S WIB")
+          if [ "${STATUS}" = "success" ]; then
+            ICON="🚀"
+            TEXT="<b>${ICON} [DEPLOYMENT SUKSES] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Staging</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A🔖 <b>Image Tag:</b> <code>staging</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A🌐 <b>Domain:</b> ${CERTBOT_DOMAINS:-Server IP}%0A✅ <b>Status:</b> Layanan Staging Siap Diuji!%0A━━━━━━━━━━━━━━━━━━━━"
+          else
+            ICON="❌"
+            TEXT="<b>${ICON} [DEPLOYMENT GAGAL] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Staging</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A⚠️ <b>Perhatian:</b> Silakan periksa log failure di GitHub Actions!%0A━━━━━━━━━━━━━━━━━━━━"
+          fi
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "text=$(printf '%b' "${TEXT}")" \
+            -d "parse_mode=HTML" > /dev/null || true
