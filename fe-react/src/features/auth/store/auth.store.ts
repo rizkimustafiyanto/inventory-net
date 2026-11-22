@@ -2,16 +2,21 @@ import { create } from "zustand"
 import { TOKEN_STORAGE_KEY, ROLE_STORAGE_KEY, USER_STORAGE_KEY } from "@/lib/api/client"
 import type { LoginResponse } from "@/types"
 
+type AuthUser = {
+  userId: number
+  username: string
+  fullName: string
+  email?: string
+  avatar?: string
+}
+
 type AuthState = {
   token: string | null
   role: string | null
-  user: {
-    userId: number
-    username: string
-    fullName: string
-  } | null
+  user: AuthUser | null
   isAuthenticated: boolean
   setAuth: (data: LoginResponse) => void
+  updateUser: (updates: Partial<AuthUser>) => void
   logout: () => void
   initAuth: () => void
 }
@@ -23,21 +28,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
 
   setAuth: (data) => {
+    const userObj: AuthUser = {
+      userId: data.userId,
+      username: data.username,
+      fullName: data.fullName,
+      email: data.email,
+    }
+
     if (typeof window !== "undefined") {
       localStorage.setItem(TOKEN_STORAGE_KEY, data.token)
       localStorage.setItem(ROLE_STORAGE_KEY, data.role)
-      localStorage.setItem(
-        USER_STORAGE_KEY,
-        JSON.stringify({ userId: data.userId, username: data.username, fullName: data.fullName })
-      )
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userObj))
     }
 
     set({
       token: data.token,
       role: data.role,
-      user: { userId: data.userId, username: data.username, fullName: data.fullName },
+      user: userObj,
       isAuthenticated: true,
     })
+  },
+
+  updateUser: (updates) => {
+    const currentUser = get().user
+    if (!currentUser) return
+
+    const updatedUser: AuthUser = {
+      ...currentUser,
+      ...updates,
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser))
+    }
+
+    set({ user: updatedUser })
   },
 
   logout: () => {
