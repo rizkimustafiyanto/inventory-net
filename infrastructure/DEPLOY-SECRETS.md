@@ -77,6 +77,8 @@ Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untu
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://+:8080
 ConnectionStrings__OracleConnection=Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=GANTI_DENGAN_PASSWORD_DATABASE_PRODUCTION_ANDA;
+ConnectionStrings__Redis=redis:6379,password=GANTI_DENGAN_PASSWORD_REDIS_PRODUCTION_ANDA
+REDIS_PASSWORD=GANTI_DENGAN_PASSWORD_REDIS_PRODUCTION_ANDA
 Jwt__Key=INVENTORY_NET_ULTRA_SECURE_JWT_SECRET_KEY_PRODUCTION_2026_CHANGE_THIS_KEY_NOW!
 Jwt__Issuer=InventoryNetApi
 Jwt__Audience=InventoryNetClient
@@ -97,6 +99,8 @@ NEXT_PUBLIC_API_BASE_URL=https://domainanda.com
 ASPNETCORE_ENVIRONMENT=Staging
 ASPNETCORE_URLS=http://+:8080
 ConnectionStrings__OracleConnection=Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=GANTI_DENGAN_PASSWORD_DATABASE_STAGING_ANDA;
+ConnectionStrings__Redis=redis:6379,password=GANTI_DENGAN_PASSWORD_REDIS_STAGING_ANDA
+REDIS_PASSWORD=GANTI_DENGAN_PASSWORD_REDIS_STAGING_ANDA
 Jwt__Key=INVENTORY_NET_STAGING_JWT_SECRET_KEY_2026_TEST_KEY_MUST_BE_LONG_AND_SECURE!
 Jwt__Issuer=InventoryNetApi
 Jwt__Audience=InventoryNetClient

@@ -14,6 +14,23 @@ services:
     networks:
       - inventory-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: inventory-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - inventory-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     container_name: inventory-backend
     build:
@@ -23,12 +40,14 @@ services:
     restart: unless-stopped
     depends_on:
       - oracle
+      - redis
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
       DOTNET_USE_POLLING_FILE_WATCHER: "true"
       DOTNET_WATCH_RESTART_ON_RUDE_EDIT: "true"
       ConnectionStrings__OracleConnection: "Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=YourPassword123;"
+      ConnectionStrings__Redis: "redis:6379"
       Jwt__Key: "INVENTORY_NET_ULTRA_SECURE_JWT_SECRET_KEY_2026_TEST_KEY_MUST_BE_LONG!"
       Jwt__Issuer: "InventoryNetApi"
       Jwt__Audience: "InventoryNetClient"
@@ -102,6 +121,7 @@ services:
 
 volumes:
   oracle_data:
+  redis_data:
 
 networks:
   inventory-network:

@@ -14,14 +14,34 @@ services:
     networks:
       - inventory-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: inventory-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-YourRedisPassword123}"
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - inventory-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-YourRedisPassword123}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     image: ghcr.io/${REGISTRY_OWNER}/inventory-backend:${IMAGE_TAG:-latest}
     container_name: inventory-backend
     restart: unless-stopped
     depends_on:
       - oracle
+      - redis
     env_file:
       - ${BACKEND_ENV_FILE:-./backend/.env.production}
+    environment:
+      - ConnectionStrings__Redis=${ConnectionStrings__Redis:-redis:6379,password=${REDIS_PASSWORD:-YourRedisPassword123}}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     networks:
@@ -43,6 +63,8 @@ services:
 volumes:
   oracle_data:
     name: inventory_oracle_data
+  redis_data:
+    name: inventory_redis_data
 
 networks:
   inventory-network:

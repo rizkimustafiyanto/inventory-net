@@ -14,14 +14,34 @@ services:
     networks:
       - inventory-staging-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: inventory-staging-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-YourRedisPassword123}"
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis_staging_data:/data
+    networks:
+      - inventory-staging-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-YourRedisPassword123}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   backend:
     image: ghcr.io/${REGISTRY_OWNER}/inventory-backend:${IMAGE_TAG:-staging}
     container_name: inventory-staging-backend
     restart: unless-stopped
     depends_on:
       - oracle
+      - redis
     env_file:
       - ${BACKEND_ENV_FILE:-./backend/.env.production}
+    environment:
+      - ConnectionStrings__Redis=${ConnectionStrings__Redis:-redis:6379,password=${REDIS_PASSWORD:-YourRedisPassword123}}
     ports:
       - "${BACKEND_PORT:-8081}:8080"
     networks:
@@ -43,6 +63,8 @@ services:
 volumes:
   oracle_staging_data:
     name: inventory_staging_oracle_data
+  redis_staging_data:
+    name: inventory_staging_redis_data
 
 networks:
   inventory-staging-network:
