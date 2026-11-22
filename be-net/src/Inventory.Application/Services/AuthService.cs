@@ -79,4 +79,141 @@ public class AuthService : IAuthService
 
         return ApiResponse<long>.Ok(user.Id, "User registered successfully");
     }
+
+    public async Task<ApiResponse<ForgotPasswordResponseDto>> ForgotPasswordAsync(ForgotPasswordRequestDto request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.UsernameOrEmail))
+            return ApiResponse<ForgotPasswordResponseDto>.Fail("Username atau Email wajib diisi");
+
+        var term = request.UsernameOrEmail.Trim().ToLower();
+        var users = await _unitOfWork.Users.FindAsync(
+            u => u.Username.ToLower() == term || u.Email.ToLower() == term,
+            cancellationToken);
+
+        var user = users.FirstOrDefault();
+        if (user == null || !user.IsActive)
+            return ApiResponse<ForgotPasswordResponseDto>.Fail("Pengguna dengan username atau email tersebut tidak ditemukan");
+
+        // Generate temporary reset token
+        var resetToken = Convert.ToBase64String(Guid.NewGuid().ToByteArray()).Replace("/", "_").Replace("+", "-").TrimEnd('=');
+
+        var response = new ForgotPasswordResponseDto
+        {
+            Username = user.Username,
+            Email = user.Email,
+            ResetToken = resetToken,
+            Message = $"Kode verifikasi reset password telah dibuat untuk akun {user.Username}"
+        };
+
+        return ApiResponse<ForgotPasswordResponseDto>.Ok(response, "Akun terverifikasi. Silakan masukkan password baru.");
+    }
+
+    public async Task<ApiResponse<bool>> ResetPasswordAsync(ResetPasswordRequestDto request, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.UsernameOrEmail) || string.IsNullOrWhiteSpace(request.NewPassword))
+            return ApiResponse<bool>.Fail("Username/Email dan Password Baru wajib diisi");
+
+        if (request.NewPassword.Length < 6)
+            return ApiResponse<bool>.Fail("Password baru minimal 6 karakter");
+
+        var term = request.UsernameOrEmail.Trim().ToLower();
+        var users = await _unitOfWork.Users.FindAsync(
+            u => u.Username.ToLower() == term || u.Email.ToLower() == term,
+            cancellationToken);
+
+        var user = users.FirstOrDefault();
+        if (user == null || !user.IsActive)
+            return ApiResponse<bool>.Fail("Pengguna tidak ditemukan");
+
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<bool>.Ok(true, "Password berhasil diperbarui. Silakan login dengan password baru.");
+    }
+
+    public async Task<ApiResponse<UserProfileDto>> GetProfileAsync(long userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null || !user.IsActive)
+            return ApiResponse<UserProfileDto>.Fail("Pengguna tidak ditemukan");
+
+        var dto = new UserProfileDto
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            FullName = user.FullName,
+            Role = user.Role.ToString(),
+            CreatedAt = user.CreatedAt
+        };
+
+        return ApiResponse<UserProfileDto>.Ok(dto);
+    }
+
+    public async Task<ApiResponse<UserProfileDto>> UpdateProfileAsync(long userId, UpdateProfileRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null || !user.IsActive)
+            return ApiResponse<UserProfileDto>.Fail("Pengguna tidak ditemukan");
+
+        if (string.IsNullOrWhiteSpace(request.FullName) || string.IsNullOrWhiteSpace(request.Email))
+            return ApiResponse<UserProfileDto>.Fail("Nama lengkap dan email tidak boleh kosong");
+
+        var emailTrimmed = request.Email.Trim().ToLower();
+        if (emailTrimmed != user.Email.ToLower())
+        {
+            var existingWithEmail = await _unitOfWork.Users.FindAsync(
+                u => u.Id != userId && u.Email.ToLower() == emailTrimmed,
+                cancellationToken);
+
+            if (existingWithEmail.Any())
+                return ApiResponse<UserProfileDto>.Fail("Email sudah digunakan oleh akun lain");
+        }
+
+        user.FullName = request.FullName.Trim();
+        user.Email = emailTrimmed;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var dto = new UserProfileDto
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            FullName = user.FullName,
+            Role = user.Role.ToString(),
+            CreatedAt = user.CreatedAt
+        };
+
+        return ApiResponse<UserProfileDto>.Ok(dto, "Profil berhasil diperbarui");
+    }
+
+    public async Task<ApiResponse<bool>> ChangePasswordAsync(long userId, ChangePasswordRequestDto request, CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null || !user.IsActive)
+            return ApiResponse<bool>.Fail("Pengguna tidak ditemukan");
+
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+            return ApiResponse<bool>.Fail("Password lama dan baru wajib diisi");
+
+        if (request.NewPassword.Length < 6)
+            return ApiResponse<bool>.Fail("Password baru minimal 6 karakter");
+
+        if (!_passwordHasher.VerifyPassword(request.CurrentPassword, user.PasswordHash))
+            return ApiResponse<bool>.Fail("Password saat ini salah");
+
+        user.PasswordHash = _passwordHasher.HashPassword(request.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return ApiResponse<bool>.Ok(true, "Password berhasil diubah");
+    }
 }
