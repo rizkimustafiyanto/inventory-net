@@ -1,6 +1,6 @@
 # Panduan Lengkap GitHub Secrets & Konfigurasi Domain
 
-Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untuk rilis otomatis ke **Staging** dan **Production**.
+Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untuk rilis otomatis ke **Staging**, **Production**, serta integrasi notifikasi/file backup ke **Bot Telegram**.
 
 ---
 
@@ -29,6 +29,8 @@ Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untu
 | `FRONTEND_ENV` | **Wajib** | *(Lihat contoh template staging di bawah)* | Seluruh isi file `.env` frontend staging. |
 | `CERTBOT_DOMAINS` | **Opsional (Domain)** | `staging.domainanda.com` | Nama domain staging Anda (pisahkan spasi jika lebih dari satu). |
 | `CERTBOT_EMAIL` | **Opsional (SSL)** | `emailanda@gmail.com` | Email untuk pendaftaran SSL gratis Let's Encrypt. |
+| `TELEGRAM_BOT_TOKEN` | **Opsional (Notif/Backup)**| `123456789:ABCdefGhI...` | Token bot dari @BotFather untuk menerima file backup & notifikasi. |
+| `TELEGRAM_CHAT_ID` | **Opsional (Notif/Backup)**| `12345678` atau `-100xxxxxxx` | Chat ID Telegram pribadi atau grup tujuan pengiriman backup. |
 
 ---
 
@@ -44,10 +46,31 @@ Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untu
 | `FRONTEND_ENV` | **Wajib** | *(Lihat contoh template production di bawah)* | Seluruh isi file `.env` frontend production. |
 | `CERTBOT_DOMAINS` | **Opsional (Domain)** | `domainanda.com www.domainanda.com` | Nama domain production Anda. |
 | `CERTBOT_EMAIL` | **Opsional (SSL)** | `emailanda@gmail.com` | Email pemilik domain untuk auto-SSL. |
+| `TELEGRAM_BOT_TOKEN` | **Opsional (Notif/Backup)**| `123456789:ABCdefGhI...` | Token bot dari @BotFather. |
+| `TELEGRAM_CHAT_ID` | **Opsional (Notif/Backup)**| `12345678` atau `-100xxxxxxx` | Chat ID Telegram tujuan pengiriman file backup. |
 
 ---
 
-## 3. Template Isi File Environment (Copy-Paste ke Secret)
+## 3. Cara Mendapatkan Token & Chat ID Telegram
+
+### Langkah 1: Buat Bot Baru
+1. Buka aplikasi Telegram, cari bot resmi **`@BotFather`**.
+2. Kirim pesan `/newbot`.
+3. Ikuti instruksi (masukkan nama bot dan username berakhiran `bot`, misal `MyInventoryBackupBot`).
+4. `@BotFather` akan memberikan **HTTP API token** (contoh: `7123456789:AAH...`).
+   👉 Salin token ini ke secret **`TELEGRAM_BOT_TOKEN`**.
+
+### Langkah 2: Dapatkan Chat ID Anda
+1. Di Telegram, cari bot **`@userinfobot`** (atau `@RawDataBot`).
+2. Klik **Start** / kirim pesan apa saja.
+3. Bot akan membalas dengan info profil Anda, cari angka di baris `Id:` (contoh: `123456789`).
+   *(Jika ingin ke grup: masukkan bot Anda ke grup, jadikan admin, lalu ambil ID grupnya).*
+   👉 Salin ID ini ke secret **`TELEGRAM_CHAT_ID`**.
+4. **PENTING**: Buka chat dengan bot baru Anda dan klik tombol **Start** agar bot memiliki izin untuk mengirimkan pesan ke Anda.
+
+---
+
+## 4. Template Isi File Environment (Copy-Paste ke Secret)
 
 ### Untuk Secret: `BACKEND_ENV` (Production)
 ```env
@@ -89,13 +112,20 @@ NEXT_PUBLIC_API_BASE_URL=https://staging.domainanda.com
 
 ---
 
-## 4. Konfigurasi DNS di Provider Domain Anda
+## 5. Menjalankan Backup & Restore Database
 
-Arahkan domain ke alamat IP VPS Anda sebelum workflow deploy pertama kali dijalankan:
+### A. Backup Otomatis
+* Berjalan otomatis setiap hari pukul **02:00 WIB** tengah malam (`cron: '0 19 * * *'`).
+* Hasil backup langsung dikirim ke Bot Telegram dan diunggah ke tab Artifacts GitHub Actions (tersimpan 90 hari).
 
-| Tipe | Nama Host / Subdomain | Target / Nilai | Keterangan |
-| :---: | :--- | :--- | :--- |
-| **A** | `@` (atau `inventory`) | `IP_VPS_PRODUCTION` | Mengarahkan domain utama ke VPS Production. |
-| **A** | `staging` | `IP_VPS_STAGING` | Mengarahkan subdomain staging ke VPS Staging. |
+### B. Backup Manual
+1. Buka tab **Actions** di GitHub $\rightarrow$ pilih **"Database Backup"**.
+2. Klik tombol **"Run workflow"** $\rightarrow$ pilih environment (`production` atau `staging`) $\rightarrow$ klik **Run workflow**.
 
-> **Catatan SSL**: Ketika `CERTBOT_DOMAINS` dan `CERTBOT_EMAIL` diisi, GitHub Actions akan otomatis menginstal Nginx dan Certbot di VPS, memasang konfigurasi reverse proxy, serta menerbitkan sertifikat HTTPS (SSL) secara instan tanpa perlu Anda konfigurasi manual di VPS.
+### C. Restore Database
+1. Buka tab **Actions** di GitHub $\rightarrow$ pilih **"Database Restore"**.
+2. Klik tombol **"Run workflow"**:
+   - Pilih target environment (misal `staging`).
+   - Masukkan nama file backup yang ada di VPS (contoh: `backup_production_20261122_020015.dmp.gz`).
+   - Ketik input teks konfirmasi: `RESTORE-CONFIRM`.
+3. Klik **Run workflow**.
