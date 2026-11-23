@@ -1,5 +1,6 @@
 using Inventory.Application.Common;
 using Inventory.Application.DTOs.Auth;
+using Inventory.Application.Events;
 using Inventory.Application.Interfaces;
 using Inventory.Domain.Entities;
 using Inventory.Domain.Interfaces;
@@ -11,15 +12,21 @@ public class AuthService : IAuthService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly IFileStorageService _fileStorageService;
+    private readonly IUploadEventQueue _uploadEventQueue;
 
     public AuthService(
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
-        IJwtTokenGenerator jwtTokenGenerator)
+        IJwtTokenGenerator jwtTokenGenerator,
+        IFileStorageService fileStorageService,
+        IUploadEventQueue uploadEventQueue)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _fileStorageService = fileStorageService;
+        _uploadEventQueue = uploadEventQueue;
     }
 
     public async Task<ApiResponse<LoginResponseDto>> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -147,6 +154,7 @@ public class AuthService : IAuthService
             Email = user.Email,
             FullName = user.FullName,
             Role = user.Role.ToString(),
+            AvatarUrl = user.AvatarUrl,
             CreatedAt = user.CreatedAt
         };
 
@@ -175,6 +183,10 @@ public class AuthService : IAuthService
 
         user.FullName = request.FullName.Trim();
         user.Email = emailTrimmed;
+        if (request.AvatarUrl != null)
+        {
+            user.AvatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl) ? null : request.AvatarUrl.Trim();
+        }
         user.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Users.Update(user);
@@ -187,6 +199,7 @@ public class AuthService : IAuthService
             Email = user.Email,
             FullName = user.FullName,
             Role = user.Role.ToString(),
+            AvatarUrl = user.AvatarUrl,
             CreatedAt = user.CreatedAt
         };
 
@@ -215,5 +228,55 @@ public class AuthService : IAuthService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ApiResponse<bool>.Ok(true, "Password berhasil diubah");
+    }
+
+    public async Task<ApiResponse<AvatarUploadResponseDto>> UploadAvatarAsync(
+        long userId,
+        Stream fileStream,
+        string fileName,
+        long fileSizeBytes,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId, cancellationToken);
+        if (user == null || !user.IsActive)
+            return ApiResponse<AvatarUploadResponseDto>.Fail("Pengguna tidak ditemukan");
+
+        // 1. File size check (Max 5MB)
+        if (fileSizeBytes <= 0 || fileSizeBytes > 5 * 1024 * 1024)
+            return ApiResponse<AvatarUploadResponseDto>.Fail("Ukuran file maksimal 5MB");
+
+        // 2. Validate genuine WebP magic bytes
+        var headerBuffer = new byte[12];
+        int bytesRead = await fileStream.ReadAsync(headerBuffer.AsMemory(0, 12), cancellationToken);
+        if (bytesRead < 12 || !_fileStorageService.ValidateWebPMagicBytes(headerBuffer))
+        {
+            return ApiResponse<AvatarUploadResponseDto>.Fail("Format file tidak valid. Harap unggah gambar format WebP asli.");
+        }
+
+        // Reset stream position
+        fileStream.Seek(0, SeekOrigin.Begin);
+
+        // 3. Fast temporary ingestion
+        var tempFilePath = await _fileStorageService.SaveTempFileAsync(fileStream, fileName, cancellationToken);
+
+        // 4. Publish event to asynchronous queue
+        var @event = new UserAvatarUploadedEvent
+        {
+            UserId = userId,
+            TempFilePath = tempFilePath,
+            OriginalFileName = fileName,
+            FileSizeBytes = fileSizeBytes,
+            UploadedAt = DateTime.UtcNow
+        };
+
+        await _uploadEventQueue.PublishAvatarUploadEventAsync(@event, cancellationToken);
+
+        var response = new AvatarUploadResponseDto
+        {
+            AvatarUrl = user.AvatarUrl ?? string.Empty,
+            Message = "Foto profil berhasil diterima dan sedang diproses secara event-driven."
+        };
+
+        return ApiResponse<AvatarUploadResponseDto>.Ok(response, "Foto profil berhasil diunggah");
     }
 }

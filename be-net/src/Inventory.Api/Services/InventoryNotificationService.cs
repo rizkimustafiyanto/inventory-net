@@ -73,4 +73,23 @@ public class InventoryNotificationService : IInventoryNotificationService
             _logger.LogError(ex, "Failed to broadcast ReceiveLowStockAlert via SignalR");
         }
     }
+
+    public async Task BroadcastUserAvatarUpdatedAsync(long userId, string avatarUrl, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payload = new
+            {
+                userId,
+                avatarUrl,
+                updatedAt = DateTime.UtcNow
+            };
+            await _hubContext.Clients.All.SendAsync("ReceiveUserAvatarUpdated", payload, cancellationToken);
+            _logger.LogInformation("Broadcasted ReceiveUserAvatarUpdated for User #{UserId}: {AvatarUrl}", userId, avatarUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to broadcast ReceiveUserAvatarUpdated via SignalR");
+        }
+    }
 }

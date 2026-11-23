@@ -17,6 +17,8 @@ public class AuthServiceTests
     private readonly Mock<IRepository<User>> _userRepoMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IJwtTokenGenerator> _jwtTokenGeneratorMock;
+    private readonly Mock<IFileStorageService> _fileStorageServiceMock;
+    private readonly Mock<IUploadEventQueue> _uploadEventQueueMock;
     private readonly AuthService _sut;
 
     public AuthServiceTests()
@@ -25,10 +27,17 @@ public class AuthServiceTests
         _userRepoMock = new Mock<IRepository<User>>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _jwtTokenGeneratorMock = new Mock<IJwtTokenGenerator>();
+        _fileStorageServiceMock = new Mock<IFileStorageService>();
+        _uploadEventQueueMock = new Mock<IUploadEventQueue>();
 
         _unitOfWorkMock.Setup(u => u.Users).Returns(_userRepoMock.Object);
 
-        _sut = new AuthService(_unitOfWorkMock.Object, _passwordHasherMock.Object, _jwtTokenGeneratorMock.Object);
+        _sut = new AuthService(
+            _unitOfWorkMock.Object,
+            _passwordHasherMock.Object,
+            _jwtTokenGeneratorMock.Object,
+            _fileStorageServiceMock.Object,
+            _uploadEventQueueMock.Object);
     }
 
     [Fact]

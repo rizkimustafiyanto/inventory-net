@@ -12,4 +12,5 @@ public interface IAuthService
     Task<ApiResponse<UserProfileDto>> GetProfileAsync(long userId, CancellationToken cancellationToken = default);
     Task<ApiResponse<UserProfileDto>> UpdateProfileAsync(long userId, UpdateProfileRequestDto request, CancellationToken cancellationToken = default);
     Task<ApiResponse<bool>> ChangePasswordAsync(long userId, ChangePasswordRequestDto request, CancellationToken cancellationToken = default);
+    Task<ApiResponse<AvatarUploadResponseDto>> UploadAvatarAsync(long userId, Stream fileStream, string fileName, long fileSizeBytes, CancellationToken cancellationToken = default);
 }

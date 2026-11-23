@@ -124,4 +124,30 @@ public class AuthController : ControllerBase
 
         return Ok(result);
     }
+
+    [HttpPost("profile/avatar")]
+    [Authorize]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadAvatar(IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(ApiResponse<AvatarUploadResponseDto>.Fail("File gambar wajib diunggah"));
+
+        var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!long.TryParse(userIdStr, out var userId))
+            return Unauthorized();
+
+        await using var stream = file.OpenReadStream();
+        var result = await _authService.UploadAvatarAsync(
+            userId,
+            stream,
+            file.FileName,
+            file.Length,
+            cancellationToken);
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return Ok(result);
+    }
 }

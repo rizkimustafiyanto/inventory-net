@@ -54,6 +54,7 @@ public class UserProfileDto
     public string Email { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -61,6 +62,13 @@ public class UpdateProfileRequestDto
 {
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+}
+
+public class AvatarUploadResponseDto
+{
+    public string AvatarUrl { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
 }
 
 public class ChangePasswordRequestDto

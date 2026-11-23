@@ -1,4 +1,5 @@
 using System.Text;
+using Inventory.Api.BackgroundServices;
 using Inventory.Api.Hubs;
 using Inventory.Api.Middlewares;
 using Inventory.Api.Services;
@@ -11,12 +12,15 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add Infrastructure Services (DbContext, Repositories, Services, Security, Redis)
+// 1. Add Infrastructure Services (DbContext, Repositories, Services, Security, Redis, Storage)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // 2. Add SignalR & Inventory Notification Service
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IInventoryNotificationService, InventoryNotificationService>();
+
+// 3. Add Event-Driven Avatar Processing Background Worker
+builder.Services.AddHostedService<AvatarProcessingBackgroundService>();
 
 // 3. Add JWT Authentication (with SignalR query token extraction)
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "INVENTORY_NET_ULTRA_SECURE_JWT_SECRET_KEY_2026_TEST_KEY_MUST_BE_LONG!";
@@ -131,8 +135,21 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
-// 8. CORS, Auth & Controllers
+// 8. CORS, Static Files, Auth & Controllers
 app.UseCors("AllowAll");
+
+// Serve uploaded assets with caching
+var uploadDirectory = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+Directory.CreateDirectory(uploadDirectory);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadDirectory),
+    RequestPath = "/uploads",
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=604800");
+    }
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
