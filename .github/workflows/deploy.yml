@@ -295,7 +295,7 @@ jobs:
 
             if ! sudo certbot --nginx --non-interactive --agree-tos --keep-until-expiring \
               --expand -m ${CERTBOT_EMAIL} \$(printf -- '-d %s ' ${CERTBOT_DOMAINS}); then
-              echo '::warning::[certbot] Let\'s Encrypt SSL issuance gagal (wajar jika server di balik NAT / Tailscale tanpa port 80 publik). Layanan Nginx tetap aktif via HTTP.'
+              echo "::warning::[certbot] SSL issuance gagal (wajar jika server di balik NAT / Tailscale tanpa port 80 publik). Layanan Nginx tetap aktif via HTTP."
             fi
             sudo systemctl reload nginx || true
           "
