@@ -19,6 +19,23 @@ public static class DbInitializer
             // Table already exists in Oracle, safe to continue
         }
 
+        // Safe idempotent check: Ensure avatar_url column exists in existing m_user table
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"m_user\" ADD \"AvatarUrl\" VARCHAR2(500) NULL");
+        }
+        catch
+        {
+            try
+            {
+                await context.Database.ExecuteSqlRawAsync("ALTER TABLE m_user ADD avatar_url VARCHAR2(500) NULL");
+            }
+            catch
+            {
+                // Column already exists, safe to ignore
+            }
+        }
+
         // 1. Seed Users
         if (!await context.Users.AnyAsync())
         {
