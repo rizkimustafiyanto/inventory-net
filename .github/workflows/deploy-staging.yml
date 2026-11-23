@@ -254,12 +254,25 @@ jobs:
         run: |
           set -euo pipefail
           echo "[certbot] Requesting SSL Certificate for: ${CERTBOT_DOMAINS}..."
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
-            "if ! command -v certbot >/dev/null 2>&1; then
-              sudo apt-get update -y && sudo apt-get install -y certbot python3-certbot-nginx
-            fi &&
-            sudo certbot --nginx --non-interactive --agree-tos --keep-until-expiring --expand -m ${CERTBOT_EMAIL} $(printf -- '-d %s ' ${CERTBOT_DOMAINS}) &&
-            sudo systemctl reload nginx"
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" "
+            set -euo pipefail
+            echo '[certbot] Menunggu apt lock tersedia (maks 3 menit)...'
+            for i in \$(seq 1 18); do
+              if ! sudo fuser /var/lib/apt/lists/lock /var/lib/dpkg/lock-frontend > /dev/null 2>&1; then
+                echo '[certbot] apt lock tersedia.'
+                break
+              fi
+              echo '[certbot] apt masih terkunci, menunggu 10 detik...'
+              sleep 10
+            done
+            if ! command -v certbot > /dev/null 2>&1; then
+              sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
+              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx
+            fi
+            sudo certbot --nginx --non-interactive --agree-tos --keep-until-expiring \
+              --expand -m ${CERTBOT_EMAIL} \$(printf -- '-d %s ' ${CERTBOT_DOMAINS})
+            sudo systemctl reload nginx
+          "
 
       - name: Send Deployment Notification to Telegram
         if: always()
