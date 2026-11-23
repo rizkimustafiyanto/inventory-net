@@ -13,6 +13,12 @@ BACKEND_ENV_FILE="${BACKEND_ENV_FILE:-${VPS_PATH}/backend/.env.production}"
 FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE:-${VPS_PATH}/frontend/.env.production}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 REGISTRY_OWNER="${REGISTRY_OWNER:-}"
+
+# Port Configuration from environment / secrets
+FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+BACKEND_PORT="${BACKEND_PORT:-8080}"
+ORACLE_PORT="${ORACLE_PORT:-1521}"
+
 DEPLOY_TS="$(date +"%Y%m%d_%H%M%S")"
 DEPLOY_LOG_DIR="${VPS_PATH}/deploy/logs"
 DEPLOY_LOG_FILE="${DEPLOY_LOG_DIR}/deploy_${DEPLOY_TS}.log"
@@ -63,8 +69,50 @@ rollback() {
 
   # shellcheck disable=SC1090
   . "${DEPLOY_STATE_FILE}"
+  FRONTEND_PORT="${FRONTEND_PORT}" \
+  BACKEND_PORT="${BACKEND_PORT}" \
+  ORACLE_PORT="${ORACLE_PORT}" \
   docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
   echo "[deploy] Rollback completed."
+}
+
+check_port_collision() {
+  local port="$1"
+  local expected_container="$2"
+  local service_name="$3"
+
+  # 1. Cek apakah ada container Docker yang sedang mem-publish host port ini (format docker ps: ':PORT->')
+  local running_containers
+  running_containers=$(docker ps --format '{{.Names}}\t{{.Ports}}' 2>/dev/null | grep -E ":${port}->" | awk '{print $1}' || true)
+
+  if [ -n "${running_containers}" ]; then
+    for c in ${running_containers}; do
+      if [ "${c}" != "${expected_container}" ]; then
+        echo "::error::[PORT COLLISION ABORT] Port ${port} (${service_name}) sudah digunakan oleh container '${c}'! Diharapkan container '${expected_container}'. Deployment DIBATALKAN untuk mencegah bentrok layanan."
+        return 1
+      fi
+    done
+    echo "[check-port] Port ${port} (${service_name}) saat ini digunakan oleh container '${expected_container}' milik service ini sendiri (Aman untuk re-deploy/update)."
+    return 0
+  fi
+
+  # 2. Cek apakah ada proses host di luar Docker yang mendengarkan port ini
+  local host_listen=""
+  if command -v ss >/dev/null 2>&1; then
+    host_listen=$(ss -tulpn 2>/dev/null | grep -E ":${port}(\s|$)" || true)
+  elif command -v netstat >/dev/null 2>&1; then
+    host_listen=$(netstat -tulpn 2>/dev/null | grep -E ":${port}(\s|$)" || true)
+  elif command -v lsof >/dev/null 2>&1; then
+    host_listen=$(lsof -iTCP:"${port}" -sTCP:LISTEN -P -n 2>/dev/null || true)
+  fi
+
+  if [ -n "${host_listen}" ]; then
+    echo "::error::[PORT COLLISION ABORT] Port ${port} (${service_name}) sudah digunakan oleh proses host di server: ${host_listen}! Deployment DIBATALKAN."
+    return 1
+  fi
+
+  echo "[check-port] Port ${port} (${service_name}) aman dan tersedia."
+  return 0
 }
 
 if [ "${MODE}" = "rollback" ]; then
@@ -77,7 +125,34 @@ fi
   echo " Starting deployment at $(date)"
   echo " Image Tag: ${IMAGE_TAG}"
   echo " Compose File: ${COMPOSE_FILE}"
+  echo " Target Ports: Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}"
   echo "=========================================="
+
+  # Ambil nama container dari compose file yang aktif
+  EXPECTED_FRONTEND=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'frontend' | awk '{print $2}' || echo "inventory-frontend")
+  EXPECTED_BACKEND=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'backend' | awk '{print $2}' || echo "inventory-backend")
+  EXPECTED_ORACLE=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'oracle' | awk '{print $2}' || echo "inventory-oracle")
+
+  echo "[deploy] Memeriksa ketersediaan port (Collision Protection)..."
+  if ! check_port_collision "${FRONTEND_PORT}" "${EXPECTED_FRONTEND}" "Frontend"; then
+    echo "ABORT_REASON=Port ${FRONTEND_PORT} (Frontend) bentrok dengan proses lain"
+    exit 1
+  fi
+
+  if ! check_port_collision "${BACKEND_PORT}" "${EXPECTED_BACKEND}" "Backend"; then
+    echo "ABORT_REASON=Port ${BACKEND_PORT} (Backend) bentrok dengan proses lain"
+    exit 1
+  fi
+
+  # Hanya periksa port Oracle jika compose file memang mengekspose port Oracle ke host
+  if grep -q "ORACLE_PORT" "${COMPOSE_FILE}" && ! grep -E "^\s*#.*ORACLE_PORT" "${COMPOSE_FILE}" >/dev/null 2>&1; then
+    if ! check_port_collision "${ORACLE_PORT}" "${EXPECTED_ORACLE}" "Oracle Database"; then
+      echo "ABORT_REASON=Port ${ORACLE_PORT} (Oracle) bentrok dengan proses lain"
+      exit 1
+    fi
+  else
+    echo "[check-port] Port Oracle (${ORACLE_PORT}) tidak diekspos ke host (internal docker network only). Melewati pengecekan collision host."
+  fi
 
   save_current_state
 
@@ -87,6 +162,9 @@ fi
   REGISTRY_OWNER="${REGISTRY_OWNER}" \
   BACKEND_ENV_FILE="${BACKEND_ENV_FILE}" \
   FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE}" \
+  FRONTEND_PORT="${FRONTEND_PORT}" \
+  BACKEND_PORT="${BACKEND_PORT}" \
+  ORACLE_PORT="${ORACLE_PORT}" \
   docker compose -f "${COMPOSE_FILE}" pull backend frontend
 
   # Recreate & start services
@@ -95,6 +173,9 @@ fi
   REGISTRY_OWNER="${REGISTRY_OWNER}" \
   BACKEND_ENV_FILE="${BACKEND_ENV_FILE}" \
   FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE}" \
+  FRONTEND_PORT="${FRONTEND_PORT}" \
+  BACKEND_PORT="${BACKEND_PORT}" \
+  ORACLE_PORT="${ORACLE_PORT}" \
   docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
 
   # Quick container health check
