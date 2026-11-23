@@ -51,17 +51,20 @@ export default function UsersPage() {
   return (
     <DashboardShell title="Manajemen Pengguna (m_user)">
       <div className="space-y-6">
-        <UserFilterBar
-          search={search}
-          onSearchChange={handleSearchChange}
-          roleFilter={roleFilter}
-          onRoleFilterChange={handleRoleFilterChange}
-          statusFilter={statusFilter}
-          onStatusFilterChange={handleStatusFilterChange}
-          loading={loading}
-          onRefresh={reload}
-          onAddNew={form.openModal}
-        />
+        {/* Controls & Filter Bar Card */}
+        <Card className="rounded-2xl border-border bg-card p-4 sm:p-5 shadow-xs">
+          <UserFilterBar
+            search={search}
+            onSearchChange={handleSearchChange}
+            roleFilter={roleFilter}
+            onRoleFilterChange={handleRoleFilterChange}
+            statusFilter={statusFilter}
+            onStatusFilterChange={handleStatusFilterChange}
+            loading={loading}
+            onRefresh={reload}
+            onAddNew={form.openModal}
+          />
+        </Card>
 
         {/* Presentational Table Component */}
         <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">

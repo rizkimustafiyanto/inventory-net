@@ -50,19 +50,21 @@ export default function ProductsPage() {
   return (
     <DashboardShell title="Katalog Produk">
       <div className="space-y-6">
-        {/* Controls & Filter Bar Component */}
-        <ProductFilterBar
-          search={search}
-          onSearchChange={handleSearchChange}
-          categoryFilter={categoryFilter}
-          onCategoryFilterChange={handleCategoryFilterChange}
-          lowStockOnly={lowStockOnly}
-          onToggleLowStock={handleLowStockToggle}
-          categories={categories}
-          loading={loading}
-          onRefresh={reloadAll}
-          onAddNew={openCreateModal}
-        />
+        {/* Controls & Filter Bar Card */}
+        <Card className="rounded-2xl border-border bg-card p-4 sm:p-5 shadow-xs">
+          <ProductFilterBar
+            search={search}
+            onSearchChange={handleSearchChange}
+            categoryFilter={categoryFilter}
+            onCategoryFilterChange={handleCategoryFilterChange}
+            lowStockOnly={lowStockOnly}
+            onToggleLowStock={handleLowStockToggle}
+            categories={categories}
+            loading={loading}
+            onRefresh={reloadAll}
+            onAddNew={openCreateModal}
+          />
+        </Card>
 
         {/* Presentational Table Component */}
         <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
