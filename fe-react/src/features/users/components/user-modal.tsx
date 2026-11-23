@@ -25,7 +25,7 @@ export function UserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <Card className="w-full max-w-md rounded-3xl border-border bg-card p-6 shadow-modal">
+      <Card className="w-full max-w-md rounded-3xl border-border bg-card p-6 shadow-modal max-h-[90vh] overflow-y-auto">
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <UserPlus className="size-5 text-primary" />
@@ -92,11 +92,20 @@ export function UserModal({
             </NativeSelect>
           </FormField>
 
-          <div className="mt-6 flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
               Batal
             </Button>
-            <Button type="submit" loading={submitting}>
+            <Button
+              type="submit"
+              loading={submitting}
+              className="w-full sm:w-auto"
+            >
               Simpan Pengguna
             </Button>
           </div>

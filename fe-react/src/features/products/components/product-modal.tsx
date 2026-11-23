@@ -53,7 +53,7 @@ export function ProductModal({
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4 p-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Kode SKU" required>
               <Input
                 placeholder="Contoh: ELEC-001"
@@ -96,7 +96,7 @@ export function ProductModal({
             />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Harga Satuan (Rp)" required>
               <Input
                 type="number"
@@ -129,17 +129,19 @@ export function ProductModal({
             </FormField>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3">
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 pt-3">
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
+              className="w-full sm:w-auto"
             >
               Batal
             </Button>
             <Button
               type="submit"
               loading={submitting}
+              className="w-full sm:w-auto"
             >
               {isEdit ? "Simpan Perubahan" : "Simpan Produk"}
             </Button>

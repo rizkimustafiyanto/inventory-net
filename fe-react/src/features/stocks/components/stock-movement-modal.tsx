@@ -152,11 +152,20 @@ export function StockMovementModal({
             />
           </FormField>
 
-          <div className="flex items-center justify-end gap-3 pt-3">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
               Batal
             </Button>
-            <Button type="submit" loading={submitting}>
+            <Button
+              type="submit"
+              loading={submitting}
+              className="w-full sm:w-auto"
+            >
               Simpan Mutasi
             </Button>
           </div>

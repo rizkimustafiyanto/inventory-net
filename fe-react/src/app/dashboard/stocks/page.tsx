@@ -34,18 +34,21 @@ export default function StockMovementsPage() {
   return (
     <DashboardShell title="Mutasi & Pergerakan Stok">
       <div className="space-y-6">
-        <StockFilterBar
-          search={search}
-          onSearchChange={handleSearchChange}
-          filterProductId={filterProductId}
-          onProductFilterChange={handleProductFilterChange}
-          filterType={filterType}
-          onTypeFilterChange={handleTypeFilterChange}
-          products={products}
-          loading={loading}
-          onRefresh={reloadAll}
-          onAddNew={form.openModal}
-        />
+        {/* Controls & Filter Bar Card */}
+        <Card className="rounded-2xl border-border bg-card p-4 sm:p-5 shadow-xs">
+          <StockFilterBar
+            search={search}
+            onSearchChange={handleSearchChange}
+            filterProductId={filterProductId}
+            onProductFilterChange={handleProductFilterChange}
+            filterType={filterType}
+            onTypeFilterChange={handleTypeFilterChange}
+            products={products}
+            loading={loading}
+            onRefresh={reloadAll}
+            onAddNew={form.openModal}
+          />
+        </Card>
 
         {/* Presentational Table Component */}
         <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">

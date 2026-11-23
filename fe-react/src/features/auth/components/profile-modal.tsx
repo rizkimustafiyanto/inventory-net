@@ -18,7 +18,6 @@ import { Button, Card, FormField, Input, Badge } from "@/components/ui"
 import { ImageUploader } from "@/components/shared"
 import { useAuthStore } from "../store/auth.store"
 import { authService } from "../services/auth.service"
-import { API_BASE_URL } from "@/lib/api/client"
 import type { ProcessedImageResult } from "@/lib/image"
 
 interface ProfileModalProps {
@@ -107,7 +106,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     e.preventDefault()
     if (!fullName.trim() || !email.trim()) {
       toast.error("Nama lengkap dan email tidak boleh kosong")
-      return
     }
 
     try {
@@ -182,7 +180,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <Card className="w-full max-w-lg overflow-hidden rounded-3xl border-border bg-card shadow-2xl">
+      <Card className="w-full max-w-lg overflow-hidden rounded-3xl border-border bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2.5">
@@ -204,11 +202,11 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-border bg-muted/30 px-6 pt-2">
+        <div className="flex border-b border-border bg-muted/30 px-6 pt-2 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab("profile")}
-            className={`border-b-2 px-4 py-2.5 text-xs font-semibold transition-all ${
+            className={`border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === "profile"
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -219,7 +217,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           <button
             type="button"
             onClick={() => setActiveTab("password")}
-            className={`border-b-2 px-4 py-2.5 text-xs font-semibold transition-all ${
+            className={`border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === "password"
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -230,7 +228,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
           <button
             type="button"
             onClick={() => setActiveTab("security")}
-            className={`border-b-2 px-4 py-2.5 text-xs font-semibold transition-all ${
+            className={`border-b-2 px-4 py-2.5 text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === "security"
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -260,7 +258,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <FormField label="Username (Tetap)">
                   <Input
                     value={`@${user?.username || ""}`}
@@ -298,11 +296,21 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 />
               </FormField>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-                <Button type="button" variant="outline" onClick={onClose}>
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="w-full sm:w-auto"
+                >
                   Batal
                 </Button>
-                <Button type="submit" loading={savingProfile} leftIcon={<Save className="size-4" />}>
+                <Button
+                  type="submit"
+                  loading={savingProfile || uploadingAvatar}
+                  leftIcon={<Save className="size-4" />}
+                  className="w-full sm:w-auto"
+                >
                   Simpan Perubahan
                 </Button>
               </div>
@@ -345,11 +353,21 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                 />
               </FormField>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
-                <Button type="button" variant="outline" onClick={() => setActiveTab("profile")}>
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 pt-3 border-t border-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActiveTab("profile")}
+                  className="w-full sm:w-auto"
+                >
                   Batal
                 </Button>
-                <Button type="submit" loading={savingPassword} leftIcon={<Save className="size-4" />}>
+                <Button
+                  type="submit"
+                  loading={savingPassword}
+                  leftIcon={<Save className="size-4" />}
+                  className="w-full sm:w-auto"
+                >
                   Perbarui Password
                 </Button>
               </div>
@@ -394,7 +412,12 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
               </div>
 
               <div className="flex justify-end pt-2">
-                <Button type="button" variant="outline" onClick={onClose}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onClose}
+                  className="w-full sm:w-auto"
+                >
                   Tutup
                 </Button>
               </div>

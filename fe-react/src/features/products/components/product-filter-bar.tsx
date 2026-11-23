@@ -44,7 +44,7 @@ export function ProductFilterBar({
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-1 flex-wrap items-center gap-3">
+      <div className="flex flex-1 flex-wrap items-center gap-2.5 sm:gap-3">
         <Input
           leftIcon={<Search className="size-4" />}
           placeholder="Cari SKU atau nama produk..."
@@ -72,12 +72,13 @@ export function ProductFilterBar({
           variant={lowStockOnly ? "default" : "outline"}
           onClick={() => handleToggle?.()}
           leftIcon={<AlertCircle className="size-4" />}
+          className="w-full sm:w-auto"
         >
           Hanya Stok Tipis
         </Button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 w-full sm:w-auto">
         <Button
           variant="outline"
           size="icon"
@@ -89,6 +90,7 @@ export function ProductFilterBar({
         <Button
           onClick={() => handleAdd?.()}
           leftIcon={<Plus className="size-4" />}
+          className="flex-1 sm:flex-none"
         >
           Tambah Produk
         </Button>

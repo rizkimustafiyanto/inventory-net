@@ -27,7 +27,7 @@ export function CategoryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-      <Card className="w-full max-w-md overflow-hidden rounded-3xl border-border bg-card shadow-2xl">
+      <Card className="w-full max-w-md overflow-hidden rounded-3xl border-border bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <Layers className="size-5 text-primary" />
@@ -63,11 +63,20 @@ export function CategoryModal({
             />
           </FormField>
 
-          <div className="flex items-center justify-end gap-3 pt-3">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              className="w-full sm:w-auto"
+            >
               Batal
             </Button>
-            <Button type="submit" loading={submitting}>
+            <Button
+              type="submit"
+              loading={submitting}
+              className="w-full sm:w-auto"
+            >
               {isEdit ? "Simpan Perubahan" : "Simpan Kategori"}
             </Button>
           </div>

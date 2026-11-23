@@ -40,14 +40,17 @@ export default function ReportsPage() {
           totalSkus={totalSkus}
         />
 
-        <ReportFilterBar
-          search={search}
-          onSearchChange={handleSearchChange}
-          loading={loading}
-          onExportCSV={handleExportCSV}
-          onPrint={handlePrint}
-          onRefresh={reload}
-        />
+        {/* Controls & Filter Bar Card */}
+        <Card className="rounded-2xl border-border bg-card p-4 sm:p-5 shadow-xs">
+          <ReportFilterBar
+            search={search}
+            onSearchChange={handleSearchChange}
+            loading={loading}
+            onExportCSV={handleExportCSV}
+            onPrint={handlePrint}
+            onRefresh={reload}
+          />
+        </Card>
 
         <Card className="overflow-hidden rounded-2xl border-border bg-card shadow-xs">
           <ReportTable

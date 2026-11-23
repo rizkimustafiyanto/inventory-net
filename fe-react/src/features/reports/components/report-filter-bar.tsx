@@ -22,7 +22,7 @@ export function ReportFilterBar({
 }: ReportFilterBarProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-1 flex-wrap items-center gap-3">
+      <div className="flex flex-1 flex-wrap items-center gap-2.5 sm:gap-3">
         <Input
           leftIcon={<Search className="size-4" />}
           placeholder="Cari SKU, nama produk, atau kategori..."
@@ -32,11 +32,12 @@ export function ReportFilterBar({
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
         <Button
           variant="outline"
           onClick={onExportCSV}
           leftIcon={<Download className="size-4" />}
+          className="flex-1 sm:flex-none"
         >
           Export CSV
         </Button>
@@ -45,6 +46,7 @@ export function ReportFilterBar({
           variant="outline"
           onClick={onPrint}
           leftIcon={<Printer className="size-4" />}
+          className="flex-1 sm:flex-none"
         >
           Cetak / PDF
         </Button>

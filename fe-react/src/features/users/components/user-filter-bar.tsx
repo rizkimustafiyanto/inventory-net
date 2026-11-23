@@ -28,7 +28,7 @@ export function UserFilterBar({
 }: UserFilterBarProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-1 flex-wrap items-center gap-3">
+      <div className="flex flex-1 flex-wrap items-center gap-2.5 sm:gap-3">
         <Input
           leftIcon={<Search className="size-4" />}
           placeholder="Cari pengguna, nama, email..."
@@ -59,7 +59,7 @@ export function UserFilterBar({
         </NativeSelect>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 w-full sm:w-auto">
         <Button
           variant="outline"
           size="icon"
@@ -68,7 +68,11 @@ export function UserFilterBar({
           title="Segarkan Data"
           icon={<RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />}
         />
-        <Button onClick={onAddNew} leftIcon={<UserPlus className="size-4" />}>
+        <Button
+          onClick={onAddNew}
+          leftIcon={<UserPlus className="size-4" />}
+          className="flex-1 sm:flex-none"
+        >
           Tambah Pengguna
         </Button>
       </div>
