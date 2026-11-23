@@ -139,9 +139,16 @@ jobs:
       FRONTEND_PORT: ${{ secrets.FRONTEND_PORT || '3001' }}
       BACKEND_PORT: ${{ secrets.BACKEND_PORT || '8081' }}
       ORACLE_PORT: ${{ secrets.ORACLE_PORT || '1522' }}
+      TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        if: ${{ env.TAILSCALE_AUTHKEY != '' }}
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ env.TAILSCALE_AUTHKEY }}
 
       - name: Validate Required Secrets
         env:

@@ -42,9 +42,17 @@ jobs:
     needs: validate-guard
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
+    env:
+      TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        if: ${{ env.TAILSCALE_AUTHKEY != '' }}
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ env.TAILSCALE_AUTHKEY }}
 
       - name: Validate Required Secrets
         env:
