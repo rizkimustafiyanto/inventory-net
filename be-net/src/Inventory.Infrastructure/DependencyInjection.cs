@@ -49,6 +49,15 @@ public static class DependencyInjection
             return new RedisLockService(logger, redis);
         });
 
+        // File Storage & Event-Driven Upload Queue
+        services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+        services.AddSingleton<IUploadEventQueue>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<ChannelUploadEventQueue>>();
+            var redis = sp.GetService<IConnectionMultiplexer>();
+            return new ChannelUploadEventQueue(logger, redis);
+        });
+
         // Repositories & UnitOfWork
         services.AddScoped(typeof(IRepository<>), typeof(GenericRepository<>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
