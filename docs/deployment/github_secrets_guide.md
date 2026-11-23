@@ -17,8 +17,8 @@ Semua secret di bawah ini diisi melalui GitHub repository Anda di:
 | 4 | `VPS_PATH` | **Wajib** | Akses Server | `/opt/inventory_prod` |
 | 5 | `CERTBOT_DOMAINS` | Opsional (Domain) | SSL & Nginx | `inventory.namadomain.com` |
 | 6 | `CERTBOT_EMAIL` | Opsional (SSL) | SSL & Nginx | `developer@gmail.com` |
-| 7 | `TELEGRAM_BOT_TOKEN` | Opsional (Notif) | Telegram Bot | `8764075501:AAH9qL9GEADnvJHTaGG7IxNNHm-_iRdhAA8` |
-| 8 | `TELEGRAM_CHAT_ID` | Opsional (Notif) | Telegram Bot | `-5137288416` |
+| 7 | `TELEGRAM_BOT_TOKEN` | Opsional (Notif) | Telegram Bot | `8764075501:........` |
+| 8 | `TELEGRAM_CHAT_ID` | Opsional (Notif) | Telegram Bot | `-5137........` |
 | 9 | `BACKEND_ENV` | **Wajib** | Konfigurasi App | *(Blok teks variabel .NET)* |
 | 10 | `FRONTEND_ENV` | **Wajib** | Konfigurasi App | *(Blok teks variabel Next.js)* |
 
@@ -142,8 +142,8 @@ Semua secret di bawah ini diisi melalui GitHub repository Anda di:
 ### 3.2 `TELEGRAM_CHAT_ID`
 * **Fungsi**: ID percakapan chat pribadi atau ID grup Telegram tempat bot mengirimkan pesan dan file backup.
 * **Contoh Nilai**:
-  * Untuk Grup Telegram: `-5137288416` (atau `-1005137288416`)
-  * Untuk Chat Pribadi: `123456789`
+  * Untuk Grup Telegram: `-513728841...` (atau `-1005137288416`)
+  * Untuk Chat Pribadi: `1234567.....`
 * **Cara Mendapatkannya**:
   * **Jika ingin dikirim ke Grup**:
     1. Buat grup Telegram baru (atau gunakan grup yang sudah ada).

@@ -8,7 +8,7 @@ Dokumen ini menjelaskan seluruh pipeline GitHub Actions pada project **Inventory
 
 | Workflow | File | Trigger | Tujuan |
 | :--- | :--- | :--- | :--- |
-| **CI** | `.github/workflows/ci.yml` | Otomatis pada `push` & `PR` ke branch `staging` & `main` | Menjalankan build & unit test .NET 8 (14 tests) dan lint/type-check/build Next.js 16 secara paralel. |
+| **CI** | `.github/workflows/ci.yml` | `PR` ke `staging` & `main`, serta `push` ke `main` | Menjalankan build & unit test .NET 8 (14 tests) dan lint/type-check/build Next.js 16 secara paralel. |
 | **Deploy Staging** | `.github/workflows/deploy-staging.yml` | Otomatis pada `push` ke branch `staging` | Build image Docker `:staging` $\rightarrow$ Push ke GHCR $\rightarrow$ Auto Deploy via SSH ke VPS Staging + Nginx & Certbot. |
 | **Deploy Production** | `.github/workflows/deploy.yml` | **Manual Only** (`workflow_dispatch`) | Hanya dijalankan saat developer mengklik tombol **"Run workflow"** di GitHub Actions untuk branch `main`. |
 | **Database Backup** | `.github/workflows/backup.yml` | **Cron (02:00 WIB)** + Manual Trigger | Ekspor Oracle Data Pump (`expdp`) $\rightarrow$ Kompresi gzip $\rightarrow$ Upload GitHub Artifacts (90 hari) $\rightarrow$ Kirim dokumen file ke Bot Telegram. |
