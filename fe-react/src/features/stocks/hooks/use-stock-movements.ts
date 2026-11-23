@@ -71,29 +71,37 @@ export function useStockMovements() {
   // Real-time WebSocket listener: Prepend live stock mutations immediately
   useEffect(() => {
     const unsubscribe = subscribeStockMovement((movement) => {
+      // Perbarui daftar produk agar pilihan stok di modal ikut ter-update
+      loadProducts()
+
       // If matches active filters and user is on page 1, prepend immediately
       if (
         page === 1 &&
         (!filterProductId || filterProductId === movement.productId) &&
         (!filterType || filterType === movement.type)
       ) {
-        setMovements((prev) => [
-          {
-            id: movement.id,
-            productId: movement.productId,
-            productName: movement.productName,
-            productSku: movement.productSku,
-            type: movement.type,
-            quantity: movement.quantity,
-            stockBefore: movement.stockBefore,
-            stockAfter: movement.stockAfter,
-            reason: movement.reason,
-            referenceNumber: movement.referenceNumber,
-            userName: movement.userName,
-            createdAt: movement.createdAt,
-          },
-          ...prev.slice(0, pageSize - 1),
-        ])
+        setMovements((prev) => {
+          if (prev.some((m) => m.id === movement.id)) {
+            return prev
+          }
+          return [
+            {
+              id: movement.id,
+              productId: movement.productId,
+              productName: movement.productName,
+              productSku: movement.productSku,
+              type: movement.type,
+              quantity: movement.quantity,
+              stockBefore: movement.stockBefore,
+              stockAfter: movement.stockAfter,
+              reason: movement.reason,
+              referenceNumber: movement.referenceNumber,
+              userName: movement.userName,
+              createdAt: movement.createdAt,
+            },
+            ...prev.slice(0, pageSize - 1),
+          ]
+        })
         setMeta((prev) => (prev ? { ...prev, totalCount: prev.totalCount + 1 } : prev))
       }
 
@@ -104,7 +112,7 @@ export function useStockMovements() {
       )
     })
     return unsubscribe
-  }, [subscribeStockMovement, page, pageSize, filterProductId, filterType])
+  }, [subscribeStockMovement, page, pageSize, filterProductId, filterType, loadProducts])
 
   useEffect(() => {
     loadProducts()

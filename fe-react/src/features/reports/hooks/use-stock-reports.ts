@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { reportService } from "../services/report.service"
 import { useDebounce } from "@/hooks"
+import { useInventorySocket } from "@/lib/socket"
 import type { StockReport, PaginationMeta } from "@/types"
 
 export function useStockReports() {
@@ -59,6 +60,17 @@ export function useStockReports() {
     loadKpis()
     loadPagedReports()
   }, [loadKpis, loadPagedReports])
+
+  const { subscribeStockMovement } = useInventorySocket()
+
+  // Real-time synchronization: refresh reports and valuation metrics on new stock movement
+  useEffect(() => {
+    const unsub = subscribeStockMovement(() => {
+      loadKpis()
+      loadPagedReports()
+    })
+    return unsub
+  }, [subscribeStockMovement, loadKpis, loadPagedReports])
 
   useEffect(() => {
     loadKpis()

@@ -74,7 +74,11 @@ export function useProducts() {
       setProducts((prev) =>
         prev.map((p) =>
           p.id === update.productId
-            ? { ...p, stockQuantity: update.newStock }
+            ? {
+                ...p,
+                stockQuantity: update.newStock,
+                isLowStock: update.newStock <= p.minStockLevel,
+              }
             : p
         )
       )

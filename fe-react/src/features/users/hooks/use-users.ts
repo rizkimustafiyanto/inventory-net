@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { userService } from "../services/user.service"
 import { useDebounce } from "@/hooks"
+import { useInventorySocket } from "@/lib/socket"
 import type { User, PaginationMeta } from "@/types"
 
 export function useUsers() {
@@ -50,6 +51,18 @@ export function useUsers() {
   useEffect(() => {
     loadUsers()
   }, [loadUsers])
+
+  const { subscribeUserAvatarUpdated } = useInventorySocket()
+
+  // Real-time synchronization: Update avatar in user list table when background queue completes
+  useEffect(() => {
+    const unsub = subscribeUserAvatarUpdated((event) => {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === event.userId ? { ...u, avatarUrl: event.avatarUrl } : u))
+      )
+    })
+    return unsub
+  }, [subscribeUserAvatarUpdated])
 
   const handleSearchChange = (value: string) => {
     setSearch(value)
