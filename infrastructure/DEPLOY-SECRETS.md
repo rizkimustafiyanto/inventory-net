@@ -34,6 +34,7 @@ Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untu
 | `CERTBOT_EMAIL` | **Opsional (SSL)** | `emailanda@gmail.com` | Email untuk pendaftaran SSL gratis Let's Encrypt. |
 | `TELEGRAM_BOT_TOKEN` | **Opsional (Notif/Backup)**| `8764075501:AAH9qL........` | Token bot dari @BotFather. |
 | `TELEGRAM_CHAT_ID` | **Opsional (Notif/Backup)**| `-5137288416` | Chat ID Telegram grup "TEST". |
+| `TAILSCALE_AUTHKEY` | **Wajib (Jika Home Server/Tailscale)** | `tskey-auth-...` | Auth key Tailscale untuk menghubungkan GitHub Actions ke server. |
 
 ---
 
@@ -54,6 +55,7 @@ Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untu
 | `CERTBOT_EMAIL` | **Opsional (SSL)** | `emailanda@gmail.com` | Email pemilik domain untuk auto-SSL. |
 | `TELEGRAM_BOT_TOKEN` | **Opsional (Notif/Backup)**| `8764075501:AAH9qL........` | Token bot dari @BotFather. |
 | `TELEGRAM_CHAT_ID` | **Opsional (Notif/Backup)**| `-5137288416` | Chat ID Telegram grup "TEST". |
+| `TAILSCALE_AUTHKEY` | **Wajib (Jika Home Server/Tailscale)** | `tskey-auth-...` | Auth key Tailscale untuk menghubungkan GitHub Actions ke server. |
 
 ---
 

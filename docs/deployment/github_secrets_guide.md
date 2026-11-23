@@ -24,6 +24,7 @@ Semua secret di bawah ini diisi melalui GitHub repository Anda di:
 | 11 | `TELEGRAM_CHAT_ID` | Opsional (Notif) | Telegram Bot | `-5137288416` | `-5137288416` |
 | 12 | `BACKEND_ENV` | **Wajib** | Konfigurasi App | *(Blok teks variabel .NET)* | *(Blok teks variabel .NET)* |
 | 13 | `FRONTEND_ENV` | **Wajib** | Konfigurasi App | *(Blok teks variabel Next.js)* | *(Blok teks variabel Next.js)* |
+| 14 | `TAILSCALE_AUTHKEY` | **Wajib (Jika Home Server/Tailscale)** | Akses Tailnet | `tskey-auth-...` | `tskey-auth-...` |
 
 ---
 
