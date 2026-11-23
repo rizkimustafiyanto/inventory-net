@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Camera, Upload, Trash2, Check, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui"
+import { getApiBaseUrl } from "@/lib/api/client"
 import { useImageUploader, type ProcessedImageResult } from "@/lib/image"
 import { cn } from "@/lib/utils"
 
@@ -59,7 +60,7 @@ export function ImageUploader({
     if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("http://") || url.startsWith("https://")) {
       return url
     }
-    const cleanBase = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "")
+    const cleanBase = getApiBaseUrl()
     const cleanUrl = url.startsWith("/") ? url : `/${url}`
     return `${cleanBase}${cleanUrl}`
   }

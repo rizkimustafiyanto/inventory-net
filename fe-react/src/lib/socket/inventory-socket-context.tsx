@@ -8,7 +8,7 @@ import {
   LogLevel,
 } from "@microsoft/signalr"
 import { toast } from "sonner"
-import { API_BASE_URL, TOKEN_STORAGE_KEY } from "@/lib/api/client"
+import { TOKEN_STORAGE_KEY, getApiBaseUrl } from "@/lib/api/client"
 import type { StockMovementType } from "@/types"
 
 export interface StockMovementEvent {
@@ -112,7 +112,7 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
     // Only connect in browser environment
     if (typeof window === "undefined") return
 
-    const hubUrl = `${API_BASE_URL.replace(/\/$/, "")}/hubs/inventory`
+    const hubUrl = `${getApiBaseUrl()}/hubs/inventory`
 
     const connection = new HubConnectionBuilder()
       .withUrl(hubUrl, {
@@ -211,8 +211,8 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
 
     return () => {
       if (connectionRef.current) {
-        if (connectionRef.current.state === HubConnectionState.Connected) {
-          connectionRef.current.stop()
+        if (connectionRef.current.state !== HubConnectionState.Disconnected) {
+          connectionRef.current.stop().catch(() => {})
         }
         connectionRef.current = null
       }
