@@ -18,6 +18,7 @@ import { Card, Button } from "@/components/ui"
 import { useAuthStore } from "@/features/auth/store/auth.store"
 import { cn } from "@/lib/utils"
 import { DashboardTopbar } from "./dashboard-topbar"
+import { DashboardBottomNav } from "./dashboard-bottom-nav"
 
 interface NavItem {
   label: string
@@ -209,15 +210,22 @@ export function DashboardShell({ title, children }: DashboardShellProps) {
           </div>
         )}
 
-        {/* Main Content Area */}
-        <main className="min-w-0 w-full space-y-6">
-          <DashboardTopbar
-            title={title}
-            onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
-          />
+        {/* Main Content Area with Bottom Padding on Mobile for Bottom Nav */}
+        <main className="min-w-0 w-full space-y-6 pb-24 lg:pb-0">
+          {/* Modern Sticky Top App Bar */}
+          <div className="sticky top-2 sm:top-4 z-30 transition-all">
+            <DashboardTopbar
+              title={title}
+              onToggleMobileMenu={() => setIsMobileMenuOpen(true)}
+            />
+          </div>
+
           {children}
         </main>
       </div>
+
+      {/* Modern Fixed Bottom Navigation Bar (< lg screens) */}
+      <DashboardBottomNav onOpenMobileMenu={() => setIsMobileMenuOpen(true)} />
     </div>
   )
 }

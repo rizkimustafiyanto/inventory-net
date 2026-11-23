@@ -57,7 +57,7 @@ export function DashboardTopbar({ title, onToggleMobileMenu }: DashboardTopbarPr
 
   return (
     <>
-      <header className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 px-3.5 sm:px-6 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/95">
+      <header className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white/95 backdrop-blur-md px-3.5 sm:px-6 py-3 shadow-xs dark:border-slate-800/90 dark:bg-slate-900/95">
         <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           {onToggleMobileMenu && (
             <Button
