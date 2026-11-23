@@ -1,6 +1,5 @@
 import Link from "next/link"
 import {
-  Boxes,
   ArrowRight,
   ShieldCheck,
   Layers,
@@ -14,56 +13,13 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { Button, Card } from "@/components/ui"
+import { LandingNavbar } from "@/components/layout"
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      {/* Navbar */}
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none">
-              <Boxes className="size-6" />
-            </div>
-            <div>
-              <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
-                InventoryNet
-              </span>
-              <span className="ml-2 hidden rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 sm:inline dark:bg-indigo-950 dark:text-indigo-300">
-                .NET 8 & Next.js
-              </span>
-            </div>
-          </div>
-
-          <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex dark:text-slate-300">
-            <a href="#features" className="transition hover:text-indigo-600">
-              Fitur Utama
-            </a>
-            <a href="#architecture" className="transition hover:text-indigo-600">
-              Arsitektur
-            </a>
-            <a href="#roles" className="transition hover:text-indigo-600">
-              Role & Hak Akses
-            </a>
-            <a
-              href="http://localhost:8080/swagger"
-              target="_blank"
-              rel="noreferrer"
-              className="transition hover:text-indigo-600"
-            >
-              API Swagger ↗
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Link href="/login">
-              <Button rightIcon={<ArrowRight className="size-4" />}>
-                Masuk ke Sistem
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* Responsive Navbar with Mobile Drawer */}
+      <LandingNavbar />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
