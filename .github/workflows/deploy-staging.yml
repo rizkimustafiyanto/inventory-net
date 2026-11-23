@@ -265,13 +265,20 @@ jobs:
               echo '[certbot] apt masih terkunci, menunggu 10 detik...'
               sleep 10
             done
+
+            # Perbaiki mirror regional yang sering 403 / corrupt ke mirror resmi Ubuntu
+            sudo sed -i 's|http://id.archive.ubuntu.com/|http://archive.ubuntu.com/|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
+
             if ! command -v certbot > /dev/null 2>&1; then
               sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
-              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y certbot python3-certbot-nginx
+              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --fix-missing --no-install-recommends certbot python3-certbot-nginx
             fi
-            sudo certbot --nginx --non-interactive --agree-tos --keep-until-expiring \
-              --expand -m ${CERTBOT_EMAIL} \$(printf -- '-d %s ' ${CERTBOT_DOMAINS})
-            sudo systemctl reload nginx
+
+            if ! sudo certbot --nginx --non-interactive --agree-tos --keep-until-expiring \
+              --expand -m ${CERTBOT_EMAIL} \$(printf -- '-d %s ' ${CERTBOT_DOMAINS}); then
+              echo '::warning::[certbot] Let\'s Encrypt SSL issuance gagal (wajar jika server di balik NAT / Tailscale tanpa port 80 publik). Layanan Nginx tetap aktif via HTTP.'
+            fi
+            sudo systemctl reload nginx || true
           "
 
       - name: Send Deployment Notification to Telegram
