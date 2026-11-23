@@ -96,7 +96,6 @@ jobs:
              bash ${VPS_PATH}/restore-oracle.sh '${FULL_BACKUP_PATH}'"
 
       - name: Send Notification to Telegram Bot
-        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHAT_ID != '' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -104,6 +103,12 @@ jobs:
           BACKUP_FILE_NAME: ${{ github.event.inputs.backup_file_name }}
         run: |
           set -euo pipefail
+
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "[telegram] TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID belum diset. Notifikasi dilewati."
+            exit 0
+          fi
+
           RESTORE_TIME=$(TZ="Asia/Jakarta" date +"%Y-%m-%d %H:%M:%S WIB")
 
           MESSAGE="♻️ <b>[DATABASE RESTORE] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Target Env :</b> <code>${TARGET_ENV}</code>%0A📅 <b>Waktu     :</b> <code>${RESTORE_TIME}</code>%0A📂 <b>Source File:</b> <code>${BACKUP_FILE_NAME}</code>%0A👤 <b>Actor     :</b> ${{ github.actor }}%0A✅ <b>Status    :</b> Database Berhasil Di-restore!%0A━━━━━━━━━━━━━━━━━━━━"
