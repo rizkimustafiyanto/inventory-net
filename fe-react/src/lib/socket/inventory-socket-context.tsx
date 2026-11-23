@@ -43,15 +43,23 @@ export interface LowStockAlertEvent {
   alertTime: string
 }
 
+export interface UserAvatarUpdatedEvent {
+  userId: number
+  avatarUrl: string
+  updatedAt: string
+}
+
 type StockMovementListener = (movement: StockMovementEvent) => void
 type ProductStockListener = (update: ProductStockUpdateEvent) => void
 type LowStockListener = (alert: LowStockAlertEvent) => void
+type UserAvatarListener = (event: UserAvatarUpdatedEvent) => void
 
 interface InventorySocketContextValue {
   isConnected: boolean
   subscribeStockMovement: (listener: StockMovementListener) => () => void
   subscribeStockUpdate: (listener: ProductStockListener) => () => void
   subscribeLowStockAlert: (listener: LowStockListener) => () => void
+  subscribeUserAvatarUpdated: (listener: UserAvatarListener) => () => void
 }
 
 const InventorySocketContext = createContext<InventorySocketContextValue>({
@@ -59,6 +67,7 @@ const InventorySocketContext = createContext<InventorySocketContextValue>({
   subscribeStockMovement: () => () => {},
   subscribeStockUpdate: () => () => {},
   subscribeLowStockAlert: () => () => {},
+  subscribeUserAvatarUpdated: () => () => {},
 })
 
 export function InventorySocketProvider({ children }: { children: React.ReactNode }) {
@@ -69,6 +78,7 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
   const movementListeners = useRef<Set<StockMovementListener>>(new Set())
   const updateListeners = useRef<Set<ProductStockListener>>(new Set())
   const alertListeners = useRef<Set<LowStockListener>>(new Set())
+  const avatarListeners = useRef<Set<UserAvatarListener>>(new Set())
 
   const subscribeStockMovement = useCallback((listener: StockMovementListener) => {
     movementListeners.current.add(listener)
@@ -88,6 +98,13 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
     alertListeners.current.add(listener)
     return () => {
       alertListeners.current.delete(listener)
+    }
+  }, [])
+
+  const subscribeUserAvatarUpdated = useCallback((listener: UserAvatarListener) => {
+    avatarListeners.current.add(listener)
+    return () => {
+      avatarListeners.current.delete(listener)
     }
   }, [])
 
@@ -154,6 +171,17 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
       })
     })
 
+    // Event: ReceiveUserAvatarUpdated
+    connection.on("ReceiveUserAvatarUpdated", (data: UserAvatarUpdatedEvent) => {
+      avatarListeners.current.forEach((cb) => {
+        try {
+          cb(data)
+        } catch (e) {
+          console.error("Error in avatar updated listener", e)
+        }
+      })
+    })
+
     // Connection lifecycle handlers
     connection.onreconnecting(() => {
       setIsConnected(false)
@@ -198,6 +226,7 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
         subscribeStockMovement,
         subscribeStockUpdate,
         subscribeLowStockAlert,
+        subscribeUserAvatarUpdated,
       }}
     >
       {children}

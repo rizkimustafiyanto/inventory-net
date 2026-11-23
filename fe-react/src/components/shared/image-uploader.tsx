@@ -54,7 +54,18 @@ export function ImageUploader({
     }
   }, [currentImageUrl, setPreviewUrl])
 
-  const activeImage = previewUrl || currentImageUrl
+  const resolveImageUrl = (url?: string | null) => {
+    if (!url) return ""
+    if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("http://") || url.startsWith("https://")) {
+      return url
+    }
+    const cleanBase = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "")
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`
+    return `${cleanBase}${cleanUrl}`
+  }
+
+  const rawActiveImage = previewUrl || currentImageUrl
+  const activeImage = rawActiveImage ? resolveImageUrl(rawActiveImage) : null
 
   const sizeClasses = {
     avatar: {

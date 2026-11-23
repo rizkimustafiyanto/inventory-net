@@ -8,6 +8,7 @@ type AuthUser = {
   fullName: string
   email?: string
   avatar?: string
+  avatarUrl?: string
 }
 
 type AuthState = {

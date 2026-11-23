@@ -8,6 +8,7 @@ export interface UserProfile {
   email?: string
   role: UserRole | string
   avatar?: string
+  avatarUrl?: string
   createdAt?: string
 }
 
@@ -47,6 +48,12 @@ export interface ResetPasswordRequest {
 export interface UpdateProfileRequest {
   fullName: string
   email: string
+  avatarUrl?: string
+}
+
+export interface AvatarUploadResponse {
+  avatarUrl: string
+  message: string
 }
 
 export interface ChangePasswordRequest {

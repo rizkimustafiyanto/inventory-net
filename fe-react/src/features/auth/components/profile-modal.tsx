@@ -18,6 +18,7 @@ import { Button, Card, FormField, Input, Badge } from "@/components/ui"
 import { ImageUploader } from "@/components/shared"
 import { useAuthStore } from "../store/auth.store"
 import { authService } from "../services/auth.service"
+import { API_BASE_URL } from "@/lib/api/client"
 import type { ProcessedImageResult } from "@/lib/image"
 
 interface ProfileModalProps {
@@ -33,6 +34,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [email, setEmail] = useState("")
   const [avatar, setAvatar] = useState<string | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState("")
@@ -44,22 +46,61 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     if (user) {
       setFullName(user.fullName || "")
       setEmail(user.email || "")
-      setAvatar(user.avatar || null)
+      setAvatar(user.avatarUrl || user.avatar || null)
     }
   }, [user])
 
+  useEffect(() => {
+    if (isOpen) {
+      authService.getProfile().then((res) => {
+        if (res.success && res.data) {
+          setFullName(res.data.fullName || "")
+          setEmail(res.data.email || "")
+          const serverAvatar = res.data.avatarUrl || res.data.avatar
+          if (serverAvatar) {
+            setAvatar(serverAvatar)
+            updateUser({ avatarUrl: serverAvatar })
+          }
+        }
+      }).catch(() => {})
+    }
+  }, [isOpen, updateUser])
+
   if (!isOpen) return null
 
-  const handleAvatarUploaded = (result: ProcessedImageResult) => {
+  const handleAvatarUploaded = async (result: ProcessedImageResult) => {
+    // 1. Immediate local preview
     setAvatar(result.dataUrl)
-    updateUser({ avatar: result.dataUrl })
-    toast.success(`Foto profil dikonversi ke WebP (${result.compressedFormattedSize}, hemat ${result.savingsPercent}%)`)
+
+    // 2. Upload WebP file to backend event-driven pipeline
+    try {
+      setUploadingAvatar(true)
+      const uploadRes = await authService.uploadAvatar(result.file)
+      if (uploadRes.success) {
+        toast.success(`Foto profil dikonversi ke WebP (${result.compressedFormattedSize}, hemat ${result.savingsPercent}%) dan sedang diproses server!`)
+      } else {
+        toast.warning(uploadRes.message || "Gagal mengunggah foto ke server")
+      }
+    } catch {
+      toast.error("Gagal mengunggah foto ke server")
+    } finally {
+      setUploadingAvatar(false)
+    }
   }
 
-  const handleAvatarRemoved = () => {
+  const handleAvatarRemoved = async () => {
     setAvatar(null)
-    updateUser({ avatar: undefined })
-    toast.info("Foto profil dihapus")
+    updateUser({ avatar: undefined, avatarUrl: undefined })
+    try {
+      await authService.updateProfile({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        avatarUrl: "",
+      })
+      toast.info("Foto profil dihapus")
+    } catch {
+      // ignore
+    }
   }
 
   const handleSaveProfile = async (e: React.FormEvent) => {

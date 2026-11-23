@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { LogOut, UserCircle, Radio } from "lucide-react"
 import { useAuthStore } from "@/features/auth/store/auth.store"
@@ -15,14 +15,36 @@ type DashboardTopbarProps = {
 
 export function DashboardTopbar({ title }: DashboardTopbarProps) {
   const router = useRouter()
-  const { user, role, logout } = useAuthStore()
-  const { isConnected } = useInventorySocket()
+  const { user, role, logout, updateUser } = useAuthStore()
+  const { isConnected, subscribeUserAvatarUpdated } = useInventorySocket()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+
+  // Real-time synchronization for avatar update across devices / tabs
+  useEffect(() => {
+    const unsub = subscribeUserAvatarUpdated((event) => {
+      if (user && user.userId === event.userId) {
+        updateUser({ avatarUrl: event.avatarUrl })
+      }
+    })
+    return unsub
+  }, [subscribeUserAvatarUpdated, user, updateUser])
 
   const handleLogout = () => {
     logout()
     router.push("/login")
   }
+
+  const resolveAvatar = (url?: string | null) => {
+    if (!url) return null
+    if (url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("http://") || url.startsWith("https://")) {
+      return url
+    }
+    const cleanBase = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "")
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`
+    return `${cleanBase}${cleanUrl}`
+  }
+
+  const avatarSrc = resolveAvatar(user?.avatarUrl || user?.avatar)
 
   const initials = (user?.fullName || user?.username || "Admin")
     .split(" ")
@@ -62,10 +84,10 @@ export function DashboardTopbar({ title }: DashboardTopbarProps) {
             className="group flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/80 px-3 py-1.5 text-sm transition hover:border-indigo-300 hover:bg-indigo-50/50 hover:shadow-xs dark:border-slate-800 dark:bg-slate-800/60 dark:hover:border-indigo-900 dark:hover:bg-indigo-950/40 cursor-pointer"
             title="Kelola Profil & Foto Pengguna"
           >
-            {user?.avatar ? (
+            {avatarSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={user.avatar}
+                src={avatarSrc}
                 alt="Avatar"
                 className="size-7 rounded-full object-cover ring-1 ring-indigo-500/30"
               />

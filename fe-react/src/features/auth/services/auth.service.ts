@@ -9,6 +9,7 @@ import type {
   UserProfile,
   UpdateProfileRequest,
   ChangePasswordRequest,
+  AvatarUploadResponse,
 } from "@/types"
 
 export const authService = {
@@ -44,6 +45,17 @@ export const authService = {
 
   changePassword: async (payload: ChangePasswordRequest): Promise<ApiResponse<boolean>> => {
     const response = await api.put<ApiResponse<boolean>>("/api/auth/change-password", payload)
+    return response.data
+  },
+
+  uploadAvatar: async (file: File): Promise<ApiResponse<AvatarUploadResponse>> => {
+    const formData = new FormData()
+    formData.append("file", file)
+    const response = await api.post<ApiResponse<AvatarUploadResponse>>("/api/auth/profile/avatar", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    })
     return response.data
   },
 }
