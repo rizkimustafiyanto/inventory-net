@@ -140,7 +140,7 @@ Jika tidak diisi di GitHub Secrets, sistem akan otomatis menggunakan nilai defau
 
 ### 5.1 `TELEGRAM_BOT_TOKEN`
 * **Fungsi**: Token autentikasi API bot Telegram.
-* **Nilai Anda**: `8764075501:AAH9qL9GEADnvJHTaGG7IxNNHm-_iRdhAA8`
+* **Nilai Anda**: `8764075501:.......`
 * **Cara Mendapatkannya**: Dari bot resmi `@BotFather` via perintah `/newbot`.
 
 ### 5.2 `TELEGRAM_CHAT_ID`

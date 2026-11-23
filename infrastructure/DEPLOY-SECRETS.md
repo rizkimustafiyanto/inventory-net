@@ -32,7 +32,7 @@ Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untu
 | `FRONTEND_ENV` | **Wajib** | *(Lihat contoh template staging di bawah)* | Seluruh isi file `.env` frontend staging. |
 | `CERTBOT_DOMAINS` | **Opsional (Domain)** | `staging.domainanda.com` | Nama domain staging Anda (pisahkan spasi jika lebih dari satu). |
 | `CERTBOT_EMAIL` | **Opsional (SSL)** | `emailanda@gmail.com` | Email untuk pendaftaran SSL gratis Let's Encrypt. |
-| `TELEGRAM_BOT_TOKEN` | **Opsional (Notif/Backup)**| `8764075501:AAH9qL9GEADnvJHTaGG7IxNNHm-_iRdhAA8` | Token bot dari @BotFather. |
+| `TELEGRAM_BOT_TOKEN` | **Opsional (Notif/Backup)**| `8764075501:AAH9qL........` | Token bot dari @BotFather. |
 | `TELEGRAM_CHAT_ID` | **Opsional (Notif/Backup)**| `-5137288416` | Chat ID Telegram grup "TEST". |
 
 ---
@@ -52,7 +52,7 @@ Dokumen ini adalah panduan lengkap cara mengisi secret di GitHub repository untu
 | `FRONTEND_ENV` | **Wajib** | *(Lihat contoh template production di bawah)* | Seluruh isi file `.env` frontend production. |
 | `CERTBOT_DOMAINS` | **Opsional (Domain)** | `domainanda.com www.domainanda.com` | Nama domain production Anda. |
 | `CERTBOT_EMAIL` | **Opsional (SSL)** | `emailanda@gmail.com` | Email pemilik domain untuk auto-SSL. |
-| `TELEGRAM_BOT_TOKEN` | **Opsional (Notif/Backup)**| `8764075501:AAH9qL9GEADnvJHTaGG7IxNNHm-_iRdhAA8` | Token bot dari @BotFather. |
+| `TELEGRAM_BOT_TOKEN` | **Opsional (Notif/Backup)**| `8764075501:AAH9qL........` | Token bot dari @BotFather. |
 | `TELEGRAM_CHAT_ID` | **Opsional (Notif/Backup)**| `-5137288416` | Chat ID Telegram grup "TEST". |
 
 ---
