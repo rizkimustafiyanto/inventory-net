@@ -112,6 +112,9 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
     // Only connect in browser environment
     if (typeof window === "undefined") return
 
+    let isMounted = true
+    let retryTimer: NodeJS.Timeout | null = null
+
     const hubUrl = `${getApiBaseUrl()}/hubs/inventory`
 
     const connection = new HubConnectionBuilder()
@@ -121,7 +124,7 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
         },
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000, 20000])
-      .configureLogging(LogLevel.Warning)
+      .configureLogging(LogLevel.None)
       .build()
 
     // Event: ReceiveStockMovement
@@ -184,25 +187,36 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
 
     // Connection lifecycle handlers
     connection.onreconnecting(() => {
-      setIsConnected(false)
+      if (isMounted) setIsConnected(false)
     })
 
     connection.onreconnected(() => {
-      setIsConnected(true)
+      if (isMounted) setIsConnected(true)
     })
 
     connection.onclose(() => {
-      setIsConnected(false)
+      if (isMounted) setIsConnected(false)
     })
 
-    // Start connection
+    // Start connection with safe lifecycle & retry guard
     const startConnection = async () => {
+      if (!isMounted) return
+
       try {
         await connection.start()
-        setIsConnected(true)
-      } catch (err) {
-        console.warn("SignalR connection attempt failed (will auto-retry):", err)
-        setIsConnected(false)
+        if (isMounted) {
+          setIsConnected(true)
+        }
+      } catch {
+        if (isMounted) {
+          setIsConnected(false)
+          // Jika koneksi awal gagal (misal server backend sedang boot/restart), jadwalkan retry 3 detik
+          retryTimer = setTimeout(() => {
+            if (isMounted && connection.state === HubConnectionState.Disconnected) {
+              startConnection()
+            }
+          }, 3000)
+        }
       }
     }
 
@@ -210,11 +224,17 @@ export function InventorySocketProvider({ children }: { children: React.ReactNod
     connectionRef.current = connection
 
     return () => {
+      isMounted = false
+      if (retryTimer) {
+        clearTimeout(retryTimer)
+        retryTimer = null
+      }
       if (connectionRef.current) {
-        if (connectionRef.current.state !== HubConnectionState.Disconnected) {
-          connectionRef.current.stop().catch(() => {})
-        }
+        const conn = connectionRef.current
         connectionRef.current = null
+        if (conn.state !== HubConnectionState.Disconnected) {
+          conn.stop().catch(() => {})
+        }
       }
     }
   }, [])
