@@ -128,6 +128,20 @@ fi
   echo " Target Ports: Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}"
   echo "=========================================="
 
+  # Simpan port eksternal yang di-pass dari GitHub Secrets
+  EXT_FRONTEND_PORT="${FRONTEND_PORT:-}"
+  EXT_BACKEND_PORT="${BACKEND_PORT:-}"
+  EXT_ORACLE_PORT="${ORACLE_PORT:-}"
+
+  # Muat file environment jika ada (agar variabel seperti ORACLE_PASSWORD, REDIS_PASSWORD terbaca)
+  load_env_file "${BACKEND_ENV_FILE}"
+  load_env_file "${FRONTEND_ENV_FILE}"
+
+  # Prioritaskan port yang di-pass dari GitHub Action Secret jika diset
+  [ -n "${EXT_FRONTEND_PORT}" ] && FRONTEND_PORT="${EXT_FRONTEND_PORT}"
+  [ -n "${EXT_BACKEND_PORT}" ] && BACKEND_PORT="${EXT_BACKEND_PORT}"
+  [ -n "${EXT_ORACLE_PORT}" ] && ORACLE_PORT="${EXT_ORACLE_PORT}"
+
   # Ambil nama container dari compose file yang aktif
   EXPECTED_FRONTEND=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'frontend' | awk '{print $2}' || echo "inventory-frontend")
   EXPECTED_BACKEND=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'backend' | awk '{print $2}' || echo "inventory-backend")
