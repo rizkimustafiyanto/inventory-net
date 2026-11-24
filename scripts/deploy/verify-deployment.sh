@@ -17,12 +17,21 @@ PASSED=false
 
 echo "[verify] Menunggu container siap merespon..."
 for i in $(seq 1 "${MAX_WAIT}"); do
-  # Cek apakah frontend dan backend port sudah merespon
-  FE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 3 "http://127.0.0.1:${FRONTEND_PORT}" || echo "000")
-  BE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 3 "http://127.0.0.1:${BACKEND_PORT}/" || echo "000")
+  # Ambil status HTTP murni (3 digit)
+  FE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 3 "http://127.0.0.1:${FRONTEND_PORT}" 2>/dev/null || true)
+  BE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 3 "http://127.0.0.1:${BACKEND_PORT}/" 2>/dev/null || true)
 
-  if [ "${FE_STATUS}" != "000" ] && [ "${FE_STATUS}" != "502" ] && [ "${BE_STATUS}" != "000" ] && [ "${BE_STATUS}" != "502" ]; then
-    echo "[verify] Service merespon normal! (Frontend HTTP ${FE_STATUS}, Backend HTTP ${BE_STATUS}) pada detik ke-${i}"
+  # Bersihkan whitespace jika ada
+  FE_STATUS="${FE_STATUS//[[:space:]]/}"
+  BE_STATUS="${BE_STATUS//[[:space:]]/}"
+
+  # Fallback ke 000 jika kosong
+  FE_STATUS="${FE_STATUS:-000}"
+  BE_STATUS="${BE_STATUS:-000}"
+
+  # Hanya nyatakan berhasil jika kedua HTTP code valid (200, 301, 302, 304, 307, 308)
+  if [[ "${FE_STATUS}" =~ ^(200|301|302|304|307|308)$ ]] && [[ "${BE_STATUS}" =~ ^(200|301|302|304|307|308)$ ]]; then
+    echo "[verify] Kedua service telah AKTIF dan merespon normal! (Frontend HTTP ${FE_STATUS}, Backend HTTP ${BE_STATUS}) pada detik ke-${i}"
     PASSED=true
     break
   fi
@@ -33,9 +42,9 @@ for i in $(seq 1 "${MAX_WAIT}"); do
   sleep 1
 done
 
-# 2. Jika setelah 60 detik masih gagal / 502, kumpulkan log diagnostic dan gagalkan workflow!
+# 2. Jika setelah 90 detik masih gagal / 502, kumpulkan log diagnostic dan gagalkan workflow!
 if [ "${PASSED}" != "true" ]; then
-  echo "::error::[HEALTHCHECK FAILED] Deployment GAGAL! Layanan tidak merespon atau mengembalikan error setelah ${MAX_WAIT} detik."
+  echo "::error::[HEALTHCHECK FAILED] Deployment GAGAL! Layanan tidak merespon HTTP 200 setelah ${MAX_WAIT} detik (Frontend: ${FE_STATUS}, Backend: ${BE_STATUS})."
   echo ""
   echo "=========================================="
   echo " DIAGNOSTIC: STATUS DOCKER CONTAINERS"
@@ -64,11 +73,23 @@ fi
 if [ -n "${DOMAIN}" ]; then
   FIRST_DOMAIN=$(echo "${DOMAIN}" | awk '{print $1}')
   echo "[verify] Menguji respon Nginx Reverse Proxy via domain ${FIRST_DOMAIN}..."
-  NGINX_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 5 -H "Host: ${FIRST_DOMAIN}" "http://127.0.0.1" || echo "000")
+  NGINX_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 5 -H "Host: ${FIRST_DOMAIN}" "http://127.0.0.1" 2>/dev/null || true)
+  NGINX_STATUS="${NGINX_STATUS//[[:space:]]/}"
+  NGINX_STATUS="${NGINX_STATUS:-000}"
   echo "[verify] Respon Nginx: HTTP ${NGINX_STATUS}"
-  if [ "${NGINX_STATUS}" = "502" ] || [ "${NGINX_STATUS}" = "000" ] || [ "${NGINX_STATUS}" = "504" ]; then
+  if [[ ! "${NGINX_STATUS}" =~ ^(200|301|302|304|307|308)$ ]]; then
     echo "::error::[NGINX FAILED] Nginx mengembalikan HTTP ${NGINX_STATUS} (Bad Gateway / Unreachable) saat mengakses domain ${FIRST_DOMAIN}!"
-    echo "--- Nginx Error Log ---"
+    echo "=========================================="
+    echo " DIAGNOSTIC: STATUS DOCKER CONTAINERS"
+    echo "=========================================="
+    docker ps -a
+    echo "=========================================="
+    echo " DIAGNOSTIC: LOG CONTAINER FRONTEND"
+    echo "=========================================="
+    docker logs --tail 40 $(docker ps -q -f name=frontend | head -1) 2>&1 || true
+    echo "=========================================="
+    echo " DIAGNOSTIC: NGINX ERROR LOG"
+    echo "=========================================="
     sudo tail -n 30 /var/log/nginx/error.log 2>&1 || true
     exit 1
   fi
