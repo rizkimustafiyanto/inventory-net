@@ -3,6 +3,8 @@ services:
     image: gvenzl/oracle-free:23-slim
     container_name: inventory-staging-oracle
     restart: unless-stopped
+    env_file:
+      - ${BACKEND_ENV_FILE:-./backend/.env.production}
     environment:
       ORACLE_PASSWORD: ${ORACLE_PASSWORD:-YourPassword123}
       APP_USER: ${APP_USER:-inventory_user}
@@ -15,12 +17,20 @@ services:
       - oracle_staging_data:/opt/oracle/oradata
     networks:
       - inventory-staging-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 25
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
     container_name: inventory-staging-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-YourRedisPassword123}"
+    env_file:
+      - ${BACKEND_ENV_FILE:-./backend/.env.production}
     # Redis port tidak diekspose ke host untuk mencegah "Bind for 0.0.0.0:6379 failed: port is already allocated"
     # saat VPS digunakan bersama dengan project lain yang memakai Redis.
     # Backend berkomunikasi secara internal via network 'inventory-staging-network'.
@@ -41,8 +51,10 @@ services:
     container_name: inventory-staging-backend
     restart: unless-stopped
     depends_on:
-      - oracle
-      - redis
+      oracle:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     env_file:
       - ${BACKEND_ENV_FILE:-./backend/.env.production}
     environment:
