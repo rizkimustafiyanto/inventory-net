@@ -206,6 +206,7 @@ jobs:
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 /tmp/envs/frontend.env "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/frontend/.env.production"
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 infrastructure/docker/docker-compose.staging.yml "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/docker-compose.prod.yml"
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/deploy/deploy-remote.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/deploy-remote.sh"
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/deploy/setup-ssl.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/setup-ssl.sh"
 
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
             "chmod +x ${VPS_PATH}/deploy-remote.sh && \
@@ -251,35 +252,12 @@ jobs:
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
         run: |
           set -euo pipefail
           echo "[certbot] Requesting SSL Certificate for: ${CERTBOT_DOMAINS}..."
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" "
-            set -euo pipefail
-            echo '[certbot] Menunggu apt lock tersedia (maks 3 menit)...'
-            for i in \$(seq 1 18); do
-              if ! sudo fuser /var/lib/apt/lists/lock /var/lib/dpkg/lock-frontend > /dev/null 2>&1; then
-                echo '[certbot] apt lock tersedia.'
-                break
-              fi
-              echo '[certbot] apt masih terkunci, menunggu 10 detik...'
-              sleep 10
-            done
-
-            # Perbaiki mirror regional yang sering 403 / corrupt ke mirror resmi Ubuntu
-            sudo sed -i 's|http://id.archive.ubuntu.com/|http://archive.ubuntu.com/|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
-
-            if ! command -v certbot > /dev/null 2>&1; then
-              sudo DEBIAN_FRONTEND=noninteractive apt-get update -y
-              sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --fix-missing --no-install-recommends certbot python3-certbot-nginx
-            fi
-
-            if ! sudo certbot --nginx --non-interactive --agree-tos --keep-until-expiring \
-              --expand -m ${CERTBOT_EMAIL} \$(printf -- '-d %s ' ${CERTBOT_DOMAINS}); then
-              echo "::warning::[certbot] SSL issuance gagal (wajar jika server di balik NAT / Tailscale tanpa port 80 publik). Layanan Nginx tetap aktif via HTTP."
-            fi
-            sudo systemctl reload nginx || true
-          "
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "chmod +x ${VPS_PATH}/setup-ssl.sh && bash ${VPS_PATH}/setup-ssl.sh '${CERTBOT_DOMAINS}' '${CERTBOT_EMAIL}'"
 
       - name: Send Deployment Notification to Telegram
         if: always()
