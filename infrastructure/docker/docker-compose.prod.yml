@@ -58,6 +58,7 @@ services:
     env_file:
       - ${BACKEND_ENV_FILE:-./backend/.env.production}
     environment:
+      - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__Redis=${ConnectionStrings__Redis:-redis:6379,password=${REDIS_PASSWORD:-YourRedisPassword123}}
     ports:
       # Bind ke 127.0.0.1 agar hanya bisa diakses via Nginx reverse proxy dan port bisa disesuaikan jika bentrok

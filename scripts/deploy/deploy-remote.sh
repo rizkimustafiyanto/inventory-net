@@ -179,7 +179,57 @@ fi
 
   save_current_state
 
-  # Pull new images
+  # 1. Start database & cache services first
+  echo "[deploy] Starting database & cache services (oracle, redis)..."
+  IMAGE_TAG="${IMAGE_TAG}" \
+  REGISTRY_OWNER="${REGISTRY_OWNER}" \
+  BACKEND_ENV_FILE="${BACKEND_ENV_FILE}" \
+  FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE}" \
+  FRONTEND_PORT="${FRONTEND_PORT}" \
+  BACKEND_PORT="${BACKEND_PORT}" \
+  ORACLE_PORT="${ORACLE_PORT}" \
+  docker compose -f "${COMPOSE_FILE}" up -d oracle redis
+
+  # 2. Wait for Oracle DB to become healthy (maks 45s)
+  echo "[deploy] Memeriksa kesiapan Oracle DB..."
+  for i in $(seq 1 45); do
+    ORACLE_STATUS=$(docker inspect --format '{{.State.Health.Status}}' "${EXPECTED_ORACLE}" 2>/dev/null || echo "starting")
+    if [ "${ORACLE_STATUS}" = "healthy" ]; then
+      echo "[deploy] Oracle DB dalam status HEALTHY (detik ke-${i})."
+      break
+    fi
+    sleep 1
+  done
+
+  # 3. Sinkronisasi User & Password di Oracle DB (FREEPDB1)
+  ORACLE_APP_PWD="${APP_USER_PASSWORD:-}"
+  if [ -z "${ORACLE_APP_PWD}" ] && [ -n "${ConnectionStrings__OracleConnection:-}" ]; then
+    ORACLE_APP_PWD=$(echo "${ConnectionStrings__OracleConnection}" | sed -n 's/.*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]=\([^;]*\).*/\1/p')
+  fi
+  ORACLE_APP_PWD="${ORACLE_APP_PWD:-YourPassword123}"
+
+  ORACLE_APP_USER="${APP_USER:-}"
+  if [ -z "${ORACLE_APP_USER}" ] && [ -n "${ConnectionStrings__OracleConnection:-}" ]; then
+    ORACLE_APP_USER=$(echo "${ConnectionStrings__OracleConnection}" | sed -n 's/.*[Uu][Ss][Ee][Rr][[:space:]]*[Ii][Dd]=\([^;]*\).*/\1/p')
+  fi
+  ORACLE_APP_USER="${ORACLE_APP_USER:-inventory_user}"
+
+  echo "[deploy] Menyelaraskan kredensial database user '${ORACLE_APP_USER}' pada Oracle DB..."
+  docker exec -i "${EXPECTED_ORACLE}" sqlplus -s / as sysdba << EOF || true
+ALTER SESSION SET CONTAINER = FREEPDB1;
+BEGIN
+  EXECUTE IMMEDIATE 'ALTER USER ${ORACLE_APP_USER} IDENTIFIED BY "${ORACLE_APP_PWD}" ACCOUNT UNLOCK';
+EXCEPTION
+  WHEN OTHERS THEN
+    EXECUTE IMMEDIATE 'CREATE USER ${ORACLE_APP_USER} IDENTIFIED BY "${ORACLE_APP_PWD}"';
+    EXECUTE IMMEDIATE 'GRANT CONNECT, RESOURCE, DBA TO ${ORACLE_APP_USER}';
+    EXECUTE IMMEDIATE 'ALTER USER ${ORACLE_APP_USER} QUOTA UNLIMITED ON USERS';
+END;
+/
+EXIT;
+EOF
+
+  # 4. Pull new images
   echo "[deploy] Pulling latest images..."
   IMAGE_TAG="${IMAGE_TAG}" \
   REGISTRY_OWNER="${REGISTRY_OWNER}" \
@@ -190,7 +240,7 @@ fi
   ORACLE_PORT="${ORACLE_PORT}" \
   docker compose -f "${COMPOSE_FILE}" pull backend frontend
 
-  # Recreate & start services
+  # 5. Recreate & start services
   echo "[deploy] Applying compose configuration..."
   IMAGE_TAG="${IMAGE_TAG}" \
   REGISTRY_OWNER="${REGISTRY_OWNER}" \
