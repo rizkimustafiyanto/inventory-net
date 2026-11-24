@@ -134,7 +134,8 @@ jobs:
     environment: staging
     env:
       IMAGE_TAG: ${{ needs.build_images.outputs.image_tag }}
-      CERTBOT_DOMAINS: ${{ secrets.CERTBOT_DOMAINS }}
+      APP_DOMAIN: ${{ secrets.APP_DOMAIN || secrets.CERTBOT_DOMAINS }}
+      CERTBOT_DOMAINS: ${{ secrets.APP_DOMAIN || secrets.CERTBOT_DOMAINS }}
       CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
       FRONTEND_PORT: ${{ secrets.FRONTEND_PORT || '3001' }}
       BACKEND_PORT: ${{ secrets.BACKEND_PORT || '8081' }}
@@ -223,15 +224,16 @@ jobs:
              bash ${VPS_PATH}/deploy-remote.sh deploy"
 
       - name: Update Nginx Config (Staging)
-        if: ${{ env.CERTBOT_DOMAINS != '' }}
+        if: ${{ env.APP_DOMAIN != '' || env.CERTBOT_DOMAINS != '' }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-          echo "[nginx] Configuring Nginx for Staging Domain: ${CERTBOT_DOMAINS}..."
+          TARGET_DOMAIN="${APP_DOMAIN:-${CERTBOT_DOMAINS}}"
+          echo "[nginx] Configuring Nginx for Staging Domain: ${TARGET_DOMAIN}..."
           cp infrastructure/nginx/inventory.staging.conf /tmp/inventory.staging.conf
-          sed -i "s/DOMAIN_PLACEHOLDER/${CERTBOT_DOMAINS}/g" /tmp/inventory.staging.conf
+          sed -i "s/DOMAIN_PLACEHOLDER/${TARGET_DOMAIN}/g" /tmp/inventory.staging.conf
           sed -i "s/FRONTEND_PORT_PLACEHOLDER/${FRONTEND_PORT}/g" /tmp/inventory.staging.conf
           sed -i "s/BACKEND_PORT_PLACEHOLDER/${BACKEND_PORT}/g" /tmp/inventory.staging.conf
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 /tmp/inventory.staging.conf "${VPS_USER}@${VPS_HOST}:/tmp/inventory.staging.conf"
@@ -251,16 +253,17 @@ jobs:
             sudo systemctl reload nginx"
 
       - name: Setup HTTPS (Certbot Staging)
-        if: ${{ env.CERTBOT_DOMAINS != '' && env.CERTBOT_EMAIL != '' }}
+        if: ${{ (env.APP_DOMAIN != '' || env.CERTBOT_DOMAINS != '') && env.CERTBOT_EMAIL != '' }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
         run: |
           set -euo pipefail
-          echo "[certbot] Requesting SSL Certificate for: ${CERTBOT_DOMAINS}..."
+          TARGET_DOMAIN="${APP_DOMAIN:-${CERTBOT_DOMAINS}}"
+          echo "[certbot] Checking SSL Certificate for: ${TARGET_DOMAIN}..."
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
-            "chmod +x ${VPS_PATH}/setup-ssl.sh && bash ${VPS_PATH}/setup-ssl.sh '${CERTBOT_DOMAINS}' '${CERTBOT_EMAIL}'"
+            "chmod +x ${VPS_PATH}/setup-ssl.sh && bash ${VPS_PATH}/setup-ssl.sh '${TARGET_DOMAIN}' '${CERTBOT_EMAIL}'"
 
       - name: Verify Deployment Health (Smoke Test)
         env:
@@ -269,9 +272,10 @@ jobs:
           VPS_PATH: ${{ secrets.VPS_PATH }}
         run: |
           set -euo pipefail
+          TARGET_DOMAIN="${APP_DOMAIN:-${CERTBOT_DOMAINS:-}}"
           echo "[verify] Running healthcheck on deployed services..."
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
-            "chmod +x ${VPS_PATH}/verify-deployment.sh && bash ${VPS_PATH}/verify-deployment.sh '${FRONTEND_PORT}' '${BACKEND_PORT}' '${CERTBOT_DOMAINS}'"
+            "chmod +x ${VPS_PATH}/verify-deployment.sh && bash ${VPS_PATH}/verify-deployment.sh '${FRONTEND_PORT}' '${BACKEND_PORT}' '${TARGET_DOMAIN}'"
 
       - name: Send Deployment Notification to Telegram
         if: always()
@@ -285,10 +289,11 @@ jobs:
             echo "[telegram] TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID belum diset. Notifikasi dilewati."
             exit 0
           fi
+          TARGET_DOMAIN="${APP_DOMAIN:-${CERTBOT_DOMAINS:-Server IP}}"
           DEPLOY_TIME=$(TZ="Asia/Jakarta" date +"%Y-%m-%d %H:%M:%S WIB")
           if [ "${STATUS}" = "success" ]; then
             ICON="🚀"
-            TEXT="<b>${ICON} [DEPLOYMENT SUKSES] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Staging</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A🔖 <b>Image Tag:</b> <code>staging</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A🌐 <b>Domain:</b> ${CERTBOT_DOMAINS:-Server IP}%0A🔌 <b>Ports:</b> Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}%0A🔗 <b>Run Log:</b> <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Lihat Detail Log</a>%0A✅ <b>Status:</b> Layanan Staging Siap Diuji!%0A━━━━━━━━━━━━━━━━━━━━"
+            TEXT="<b>${ICON} [DEPLOYMENT SUKSES] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Staging</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A🔖 <b>Image Tag:</b> <code>staging</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A🌐 <b>Domain:</b> https://${TARGET_DOMAIN}%0A🛡️ <b>SSL/Proxy:</b> Cloudflare Tunnel%0A🔌 <b>Ports:</b> Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}%0A🔗 <b>Run Log:</b> <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Lihat Detail Log</a>%0A✅ <b>Status:</b> Layanan Staging Siap Diuji!%0A━━━━━━━━━━━━━━━━━━━━"
           else
             ICON="❌"
             TEXT="<b>${ICON} [DEPLOYMENT GAGAL / ABORT] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Staging</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A🔌 <b>Target Ports:</b> Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}%0A⚠️ <b>Perhatian:</b> Deployment dibatalkan atau gagal! Kemungkinan terjadi bentrok port (Collision) dengan service lain di server.%0A🔗 <b>Run Log:</b> <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Cek Penyebab di Sini</a>%0A━━━━━━━━━━━━━━━━━━━━"

@@ -95,4 +95,45 @@ if [ -n "${DOMAIN}" ]; then
   fi
 fi
 
+# 4. Cek dan Jaga Ketersediaan Cloudflare Tunnel (cloudflared)
+if [ -n "${DOMAIN}" ]; then
+  FIRST_DOMAIN=$(echo "${DOMAIN}" | awk '{print $1}')
+  echo "[verify] Memeriksa status Cloudflare Tunnel untuk domain ${FIRST_DOMAIN}..."
+
+  if command -v cloudflared >/dev/null 2>&1; then
+    # Cek apakah service systemd cloudflared aktif
+    if systemctl is-active --quiet cloudflared; then
+      echo "[verify] Cloudflare Tunnel service (cloudflared.service) AKTIF dan BERJALAN."
+    else
+      echo "::warning::[verify] cloudflared.service terpasang namun TIDAK AKTIF! Mencoba me-restart..."
+      sudo systemctl restart cloudflared 2>/dev/null || true
+      sleep 2
+      if systemctl is-active --quiet cloudflared; then
+        echo "[verify] cloudflared.service berhasil diaktifkan kembali."
+      else
+        echo "::error::[CLOUDFLARE TUNNEL DOWN] cloudflared.service gagal berjalan! Akses publik melalui domain ${FIRST_DOMAIN} akan terputus."
+        exit 1
+      fi
+    fi
+
+    # Cek apakah domain terdaftar di config.yml
+    CF_CONFIG="/etc/cloudflared/config.yml"
+    if [ ! -f "${CF_CONFIG}" ]; then
+      CF_CONFIG="${HOME}/.cloudflared/config.yml"
+    fi
+    if [ -f "${CF_CONFIG}" ]; then
+      if grep -q "${FIRST_DOMAIN}" "${CF_CONFIG}" 2>/dev/null; then
+        echo "[verify] Domain ${FIRST_DOMAIN} terkonfigurasi dengan benar di ingress rule (${CF_CONFIG})."
+      else
+        echo "::warning::[CLOUDFLARE CONFIG MISSING] Domain ${FIRST_DOMAIN} belum terdaftar di ${CF_CONFIG}!"
+        echo "Tambahkan domain ke ingress rule di ${CF_CONFIG} dan jalankan: sudo systemctl restart cloudflared"
+      fi
+    else
+      echo "::warning::[CLOUDFLARE CONFIG MISSING] File konfigurasi /etc/cloudflared/config.yml tidak ditemukan!"
+    fi
+  else
+    echo "::warning::[verify] cloudflared binary belum terpasang di host server. Lewati pengecekan tunnel."
+  fi
+fi
+
 echo "[verify] Semua pemeriksaan kesehatan BERHASIL! Layanan siap digunakan."

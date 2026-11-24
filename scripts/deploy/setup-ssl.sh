@@ -9,6 +9,14 @@ if [ -z "${CERTBOT_DOMAINS}" ] || [ -z "${CERTBOT_EMAIL}" ]; then
   exit 0
 fi
 
+# Jika Cloudflare Tunnel aktif di server, SSL ditangani otomatis oleh Cloudflare Edge.
+if command -v cloudflared >/dev/null 2>&1 && systemctl is-active --quiet cloudflared; then
+  echo "[certbot] Cloudflare Tunnel (cloudflared.service) terdeteksi AKTIF."
+  echo "[certbot] Sertifikat SSL (Universal SSL) otomatis dikelola oleh Cloudflare Edge untuk domain: ${CERTBOT_DOMAINS}."
+  echo "[certbot] Certbot (Let's Encrypt HTTP-01) dilewati secara aman."
+  exit 0
+fi
+
 echo "[certbot] Setting up SSL for domains: ${CERTBOT_DOMAINS}..."
 
 # 1. Tunggu apt lock dilepas jika ada proses update background (maks 3 menit)
