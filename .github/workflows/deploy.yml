@@ -226,6 +226,7 @@ jobs:
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 infrastructure/docker/docker-compose.prod.yml "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/docker-compose.prod.yml"
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/deploy/deploy-remote.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/deploy-remote.sh"
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/deploy/setup-ssl.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/setup-ssl.sh"
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/deploy/verify-deployment.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/verify-deployment.sh"
 
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
             "chmod +x ${VPS_PATH}/deploy-remote.sh && \
@@ -258,6 +259,8 @@ jobs:
             "if ! command -v nginx >/dev/null 2>&1; then
               sudo apt-get update -y && sudo apt-get install -y nginx
             fi &&
+            sudo ufw allow 80/tcp 2>/dev/null || true &&
+            sudo ufw allow 443/tcp 2>/dev/null || true &&
             sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled &&
             sudo mv /tmp/inventory.conf /etc/nginx/sites-available/inventory.conf &&
             sudo ln -sf /etc/nginx/sites-available/inventory.conf /etc/nginx/sites-enabled/inventory.conf &&
@@ -277,6 +280,17 @@ jobs:
           echo "[certbot] Requesting SSL Certificate for: ${CERTBOT_DOMAINS}..."
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
             "chmod +x ${VPS_PATH}/setup-ssl.sh && bash ${VPS_PATH}/setup-ssl.sh '${CERTBOT_DOMAINS}' '${CERTBOT_EMAIL}'"
+
+      - name: Verify Deployment Health (Smoke Test)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          echo "[verify] Running healthcheck on deployed services..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "chmod +x ${VPS_PATH}/verify-deployment.sh && bash ${VPS_PATH}/verify-deployment.sh '${FRONTEND_PORT}' '${BACKEND_PORT}' '${CERTBOT_DOMAINS}'"
 
       - name: Send Deployment Notification to Telegram
         if: always()
