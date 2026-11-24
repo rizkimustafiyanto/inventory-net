@@ -19,7 +19,34 @@ echo "[backup] Starting Oracle Data Pump export for '${ENV_NAME}'..."
 echo "[backup] Target container: ${CONTAINER_NAME}"
 echo "[backup] Dump file: ${DUMP_FILE}"
 
-# 1. Run Data Pump Export inside the Oracle container
+# 1. Load environment variables from backend .env if present
+if [ -f "${VPS_PATH}/backend/.env.production" ]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line//$'\r'/}"
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// }" ]] && continue
+    if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"
+      val="${BASH_REMATCH[2]}"
+      if [[ "$val" =~ ^\"(.*)\"$ ]] || [[ "$val" =~ ^\'(.*)\'$ ]]; then
+        val="${BASH_REMATCH[1]}"
+      fi
+      export "$key"="$val"
+    fi
+  done < "${VPS_PATH}/backend/.env.production"
+fi
+
+ORACLE_PASSWORD="${ORACLE_PASSWORD:-YourPassword123}"
+
+echo "[backup] Menyelaraskan user system di Oracle..."
+docker exec -i "${CONTAINER_NAME}" sqlplus -s / as sysdba << EOF || true
+ALTER SESSION SET CONTAINER = ${PDB_NAME};
+ALTER USER system IDENTIFIED BY "${ORACLE_PASSWORD}" ACCOUNT UNLOCK;
+EXIT;
+EOF
+
+# 2. Run Data Pump Export inside the Oracle container
+echo "[backup] Running Data Pump Export (expdp)..."
 docker exec "${CONTAINER_NAME}" expdp \
   "system/${ORACLE_PASSWORD}@${PDB_NAME}" \
   schemas=inventory_user \
@@ -28,19 +55,22 @@ docker exec "${CONTAINER_NAME}" expdp \
   logfile="${LOG_FILE}" \
   reuse_dumpfiles=YES
 
-# 2. Locate dump file inside Oracle container dpdump directory
-DUMP_SRC="$(docker exec "${CONTAINER_NAME}" bash -c "find /opt/oracle/admin -name '${DUMP_FILE}' 2>/dev/null | head -n 1")"
+# 3. Locate dump file inside Oracle container
+DUMP_SRC="$(docker exec "${CONTAINER_NAME}" bash -c "find /opt/oracle -name '${DUMP_FILE}' 2>/dev/null | head -n 1")"
 
 if [ -z "${DUMP_SRC}" ]; then
   echo "::error::Dump file ${DUMP_FILE} not found inside container ${CONTAINER_NAME}!"
   exit 1
 fi
 
-# 3. Copy dump file from container to VPS backups directory
+# Set permissions so host user can read & compress the file
+docker exec "${CONTAINER_NAME}" chmod 666 "${DUMP_SRC}"
+
+# 4. Copy dump file from container to VPS backups directory
 docker cp "${CONTAINER_NAME}:${DUMP_SRC}" "${BACKUP_DIR}/${DUMP_FILE}"
 docker exec "${CONTAINER_NAME}" rm -f "${DUMP_SRC}"
 
-# 4. Compress dump file with gzip
+# 5. Compress dump file with gzip
 echo "[backup] Compressing ${DUMP_FILE} with gzip..."
 gzip -9 -f "${BACKUP_DIR}/${DUMP_FILE}"
 

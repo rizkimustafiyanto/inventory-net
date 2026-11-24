@@ -1,0 +1,173 @@
+name: Uploads Volume Backup
+
+on:
+  schedule:
+    # Berjalan setiap Minggu pukul 19:30 UTC = Senin 02:30 WIB
+    - cron: '30 19 * * 0'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Pilih Environment Target'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - 'production'
+          - 'staging'
+      send_telegram:
+        description: 'Kirim file backup ke Telegram (jika <= 50 MB)'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uploads-backup-${{ github.event.inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Backup Uploads Volume
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    env:
+      TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        if: ${{ env.TAILSCALE_AUTHKEY != '' }}
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ env.TAILSCALE_AUTHKEY }}
+
+      - name: Validate Required Secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VPS_HOST:-}" ] || [ -z "${VPS_USER:-}" ] || [ -z "${VPS_SSH_KEY:-}" ] || [ -z "${VPS_PATH:-}" ]; then
+            echo "::error::Missing VPS secrets in target Environment. Required: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_PATH."
+            exit 1
+          fi
+
+      - name: Setup SSH Key
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$VPS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Execute Uploads Backup on VPS
+        id: run_backup
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+          TARGET_ENV: ${{ github.event.inputs.environment || 'production' }}
+        run: |
+          set -euo pipefail
+          echo "[backup-uploads] Preparing uploads backup on VPS ${VPS_HOST} for environment: ${TARGET_ENV}..."
+
+          # Tentukan nama container backend sesuai environment
+          if [ "${TARGET_ENV}" = "staging" ]; then
+            CONTAINER_NAME="inventory-staging-backend"
+          else
+            CONTAINER_NAME="inventory-backend"
+          fi
+
+          # Upload script backup ke VPS
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/backup/backup-uploads.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/backup-uploads.sh"
+
+          # Eksekusi backup script di VPS
+          BACKUP_OUTPUT=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "chmod +x ${VPS_PATH}/backup-uploads.sh && \
+             CONTAINER_NAME=${CONTAINER_NAME} \
+             VPS_PATH=${VPS_PATH} \
+             bash ${VPS_PATH}/backup-uploads.sh ${TARGET_ENV}")
+
+          echo "${BACKUP_OUTPUT}"
+
+          # Extract metadata hasil backup
+          REMOTE_BACKUP_PATH=$(echo "${BACKUP_OUTPUT}" | grep -m 1 "OUTPUT_BACKUP_PATH=" | cut -d'=' -f2)
+          BACKUP_NAME=$(echo "${BACKUP_OUTPUT}" | grep -m 1 "OUTPUT_BACKUP_NAME=" | cut -d'=' -f2)
+          BACKUP_SIZE_KB=$(echo "${BACKUP_OUTPUT}" | grep -m 1 "OUTPUT_BACKUP_SIZE_KB=" | cut -d'=' -f2)
+
+          echo "remote_path=${REMOTE_BACKUP_PATH}" >> "$GITHUB_OUTPUT"
+          echo "backup_name=${BACKUP_NAME}" >> "$GITHUB_OUTPUT"
+          echo "backup_size_kb=${BACKUP_SIZE_KB}" >> "$GITHUB_OUTPUT"
+          echo "target_env=${TARGET_ENV}" >> "$GITHUB_OUTPUT"
+
+      - name: Download Backup File to Runner
+        id: download_backup
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          REMOTE_PATH: ${{ steps.run_backup.outputs.remote_path }}
+          BACKUP_NAME: ${{ steps.run_backup.outputs.backup_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/backups
+          echo "[backup-uploads] Downloading ${BACKUP_NAME} from VPS..."
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}:${REMOTE_PATH}" "/tmp/backups/${BACKUP_NAME}"
+          echo "local_file=/tmp/backups/${BACKUP_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Backup to GitHub Actions Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: uploads-backup-${{ steps.run_backup.outputs.target_env }}-${{ steps.run_backup.outputs.backup_name }}
+          path: ${{ steps.download_backup.outputs.local_file }}
+          retention-days: 90
+
+      - name: Send Backup & Notification to Telegram Bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          LOCAL_FILE: ${{ steps.download_backup.outputs.local_file }}
+          BACKUP_NAME: ${{ steps.run_backup.outputs.backup_name }}
+          BACKUP_SIZE_KB: ${{ steps.run_backup.outputs.backup_size_kb }}
+          TARGET_ENV: ${{ steps.run_backup.outputs.target_env }}
+          SEND_TELEGRAM: ${{ github.event.inputs.send_telegram || 'true' }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            echo "[telegram] TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID belum diset. Notifikasi dilewati."
+            exit 0
+          fi
+          
+          BACKUP_TIME=$(TZ="Asia/Jakarta" date +"%Y-%m-%d %H:%M:%S WIB")
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            TRIGGER_BY="Scheduled Cron"
+          else
+            TRIGGER_BY="Manual by ${{ github.actor }}"
+          fi
+
+          CAPTION="🖼️ <b>[UPLOADS VOLUME BACKUP] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>${TARGET_ENV}</code>%0A📅 <b>Waktu:</b> <code>${BACKUP_TIME}</code>%0A💾 <b>Ukuran:</b> <code>${BACKUP_SIZE_KB} KB</code>%0A📂 <b>File:</b> <code>${BACKUP_NAME}</code>%0A👤 <b>Trigger:</b> ${TRIGGER_BY}%0A✅ <b>Status:</b> Sukses & Tersimpan di GitHub Artifacts%0A━━━━━━━━━━━━━━━━━━━━"
+
+          FILE_BYTES=$(wc -c < "${LOCAL_FILE}")
+          MAX_TELEGRAM_BYTES=52428800 # 50 MB
+
+          if [ "${FILE_BYTES}" -le "${MAX_TELEGRAM_BYTES}" ] && [ "${SEND_TELEGRAM}" = "true" ]; then
+            echo "[telegram] Mengirimkan file dokumen backup ke Telegram..."
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
+              -F "chat_id=${TELEGRAM_CHAT_ID}" \
+              -F "document=@${LOCAL_FILE}" \
+              -F "caption=$(printf '%b' "${CAPTION}")" \
+              -F "parse_mode=HTML" > /dev/null
+          else
+            echo "[telegram] Mengirimkan notifikasi ringkasan ke Telegram..."
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TELEGRAM_CHAT_ID}" \
+              -d "text=$(printf '%b' "${CAPTION}")" \
+              -d "parse_mode=HTML" > /dev/null
+          fi
+          echo "[telegram] Notifikasi Telegram berhasil terkirim."
