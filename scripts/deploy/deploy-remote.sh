@@ -30,10 +30,19 @@ mkdir -p "${DEPLOY_LOG_DIR}" "${DEPLOY_STATE_DIR}"
 load_env_file() {
   local env_file="$1"
   if [ -f "${env_file}" ]; then
-    set -a
-    # shellcheck disable=SC1090
-    . "${env_file}"
-    set +a
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line//$'\r'/}"
+      [[ "$line" =~ ^[[:space:]]*# ]] && continue
+      [[ -z "${line// }" ]] && continue
+      if [[ "$line" =~ ^([a-zA-Z_][a-zA-Z0-9_]*)=(.*)$ ]]; then
+        local key="${BASH_REMATCH[1]}"
+        local val="${BASH_REMATCH[2]}"
+        if [[ "$val" =~ ^\"(.*)\"$ ]] || [[ "$val" =~ ^\'(.*)\'$ ]]; then
+          val="${BASH_REMATCH[1]}"
+        fi
+        export "$key"="$val"
+      fi
+    done < "${env_file}"
     echo "[deploy] Loaded environment from ${env_file}."
   else
     echo "[deploy] ${env_file} not found. Continuing with existing env."
