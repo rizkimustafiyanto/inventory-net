@@ -346,8 +346,8 @@ jobs:
             sudo systemctl enable nginx &&
             sudo systemctl reload nginx"
 
-      - name: Setup HTTPS (Certbot Production)
-        if: ${{ (env.APP_DOMAIN != '' || env.CERTBOT_DOMAINS != '') && env.CERTBOT_EMAIL != '' }}
+      - name: Setup HTTPS / Cloudflare Tunnel (Production)
+        if: ${{ env.APP_DOMAIN != '' || env.CERTBOT_DOMAINS != '' }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}

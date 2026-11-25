@@ -219,16 +219,32 @@ fi
   ORACLE_PORT="${ORACLE_PORT}" \
   docker compose -f "${COMPOSE_FILE}" up -d oracle redis
 
-  # 2. Wait for Oracle DB to become healthy (maks 45s)
-  echo "[deploy] Memeriksa kesiapan Oracle DB..."
-  for i in $(seq 1 45); do
+  # 2. Wait for Oracle DB to become healthy (maks 180s)
+  echo "[deploy] Memeriksa kesiapan Oracle DB (maks 180 detik)..."
+  ORACLE_HEALTHY=false
+  for i in $(seq 1 90); do
     ORACLE_STATUS=$(docker inspect --format '{{.State.Health.Status}}' "${EXPECTED_ORACLE}" 2>/dev/null || echo "starting")
     if [ "${ORACLE_STATUS}" = "healthy" ]; then
-      echo "[deploy] Oracle DB dalam status HEALTHY (detik ke-${i})."
+      echo "[deploy] Oracle DB dalam status HEALTHY (detik ke-$((i * 2)))."
+      ORACLE_HEALTHY=true
       break
     fi
-    sleep 1
+    if [ "${ORACLE_STATUS}" = "unhealthy" ]; then
+      echo "::error::[ORACLE UNHEALTHY] Container '${EXPECTED_ORACLE}' berstatus UNHEALTHY!"
+      break
+    fi
+    if [ $((i % 5)) -eq 0 ]; then
+      echo "[deploy] Menunggu Oracle DB siap... ($((i * 2))/180 detik) [Status: ${ORACLE_STATUS}]"
+    fi
+    sleep 2
   done
+
+  if [ "${ORACLE_HEALTHY}" != "true" ]; then
+    echo "::error::[ORACLE FAILED] Oracle DB tidak menjadi HEALTHY. Menampilkan log diagnosa:"
+    docker logs --tail 60 "${EXPECTED_ORACLE}" 2>&1 || true
+    docker inspect --format '{{json .State.Health}}' "${EXPECTED_ORACLE}" 2>&1 || true
+    exit 1
+  fi
 
   # 3. Sinkronisasi User & Password di Oracle DB (FREEPDB1)
   ORACLE_APP_PWD="${APP_USER_PASSWORD:-}"
