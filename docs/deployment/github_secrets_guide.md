@@ -18,10 +18,10 @@ Semua secret di bawah ini diisi melalui GitHub repository Anda di:
 | 5 | `FRONTEND_PORT` | Opsional (Default) | Port Mapping | `3000` | `3001` |
 | 6 | `BACKEND_PORT` | Opsional (Default) | Port Mapping | `8080` | `8081` |
 | 7 | `ORACLE_PORT` | Opsional (Default) | Port Mapping | `1521` | `1522` |
-| 8 | `CERTBOT_DOMAINS` | Opsional (Domain) | SSL & Nginx | `inventory.domain.com` | `staging.domain.com` |
-| 9 | `CERTBOT_EMAIL` | Opsional (SSL) | SSL & Nginx | `emailanda@gmail.com` | `emailanda@gmail.com` |
-| 10 | `TELEGRAM_BOT_TOKEN` | Opsional (Notif) | Telegram Bot | `8764075501:AAH...` | `8764075501:AAH...` |
-| 11 | `TELEGRAM_CHAT_ID` | Opsional (Notif) | Telegram Bot | `-5137288416` | `-5137288416` |
+| 8 | `APP_DOMAIN` / `CERTBOT_DOMAINS` | Opsional (Domain) | Cloudflare & Nginx | `net.zyramuz.site` | `stg-net.zyramuz.site` |
+| 9 | `CERTBOT_EMAIL` | Opsional (SSL) | SSL & Nginx *(dilewati jika pakai Cloudflare Tunnel)* | `emailanda@gmail.com` | `emailanda@gmail.com` |
+| 10 | `TELEGRAM_BOT_TOKEN` | Opsional (Notif) | Telegram Bot | `1234567890:AAH...` | `1234567890:AAH...` |
+| 11 | `TELEGRAM_CHAT_ID` | Opsional (Notif) | Telegram Bot | `-1001234567890` | `-1001234567890` |
 | 12 | `BACKEND_ENV` | **Wajib** | Konfigurasi App | *(Blok teks variabel .NET)* | *(Blok teks variabel .NET)* |
 | 13 | `FRONTEND_ENV` | **Wajib** | Konfigurasi App | *(Blok teks variabel Next.js)* | *(Blok teks variabel Next.js)* |
 | 14 | `TAILSCALE_AUTHKEY` | **Wajib (Jika Home Server/Tailscale)** | Akses Tailnet | `tskey-auth-...` | `tskey-auth-...` |
@@ -120,19 +120,16 @@ Jika tidak diisi di GitHub Secrets, sistem akan otomatis menggunakan nilai defau
 
 ---
 
-## 🌐 4. Kategori: Domain & Otomasi SSL (Nginx & Certbot)
+## 🌐 4. Kategori: Domain & Otomasi SSL (Cloudflare Tunnel / Nginx)
 
-### 4.1 `CERTBOT_DOMAINS`
-* **Fungsi**: Nama domain atau subdomain yang diarahkan ke VPS.
+### 4.1 `APP_DOMAIN` atau `CERTBOT_DOMAINS`
+* **Fungsi**: Nama domain atau subdomain yang diarahkan ke server untuk konfigurasi `server_name` Nginx dan pengecekan Cloudflare Tunnel.
 * **Contoh Nilai**:
-  * Production: `inventory.namadomain.com` (atau `namadomain.com www.namadomain.com`)
-  * Staging: `staging.namadomain.com`
-* **Cara Mendapatkannya**:
-  1. Buka DNS Management domain Anda (Cloudflare, Niagahoster, dll).
-  2. Tambahkan **A Record** mengarah ke IP VPS Anda (`VPS_HOST`).
+  * Production: `net.zyramuz.site`
+  * Staging: `stg-net.zyramuz.site`
 
 ### 4.2 `CERTBOT_EMAIL`
-* **Fungsi**: Alamat email aktif untuk pendaftaran akun Let's Encrypt SSL.
+* **Fungsi**: Alamat email aktif untuk pendaftaran akun Let's Encrypt SSL (hanya dipakai jika tidak menggunakan Cloudflare Tunnel; jika `cloudflared` aktif, Certbot dilewati otomatis karena SSL ditangani di Cloudflare Edge).
 * **Contoh Nilai**: `admin@namadomain.com` atau `emailpribadi@gmail.com`.
 
 ---
@@ -141,12 +138,12 @@ Jika tidak diisi di GitHub Secrets, sistem akan otomatis menggunakan nilai defau
 
 ### 5.1 `TELEGRAM_BOT_TOKEN`
 * **Fungsi**: Token autentikasi API bot Telegram.
-* **Nilai Anda**: `8764075501:.......`
+* **Contoh Nilai**: `1234567890:AAH...`
 * **Cara Mendapatkannya**: Dari bot resmi `@BotFather` via perintah `/newbot`.
 
 ### 5.2 `TELEGRAM_CHAT_ID`
 * **Fungsi**: ID percakapan chat pribadi atau grup tujuan pengiriman notifikasi dan file backup.
-* **Nilai Anda**: `-5137288416` (Grup "TEST")
+* **Contoh Nilai**: `-1001234567890`
 * **Cara Mendapatkannya**: Undang bot `@userinfobot` atau `@RawDataBot` ke dalam grup Anda untuk melihat baris `Id:`.
 
 ---
@@ -158,8 +155,10 @@ Jika tidak diisi di GitHub Secrets, sistem akan otomatis menggunakan nilai defau
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://+:8080
 
-# String koneksi ke database Oracle container
+# String koneksi ke database Oracle & Redis container
 ConnectionStrings__OracleConnection=Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=GantiDenganPasswordKuat123!;
+REDIS_PASSWORD=GantiPasswordRedisProd123!
+ConnectionStrings__Redis=redis:6379,password=GantiPasswordRedisProd123!
 
 # Kunci rahasia enkripsi JWT (Minimal 64 karakter acak)
 Jwt__Key=INVENTORY_NET_ULTRA_SECURE_JWT_SECRET_KEY_PRODUCTION_2026_CHANGE_THIS_KEY_NOW!
@@ -173,6 +172,8 @@ ASPNETCORE_ENVIRONMENT=Staging
 ASPNETCORE_URLS=http://+:8080
 
 ConnectionStrings__OracleConnection=Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=GantiPasswordStaging123!;
+REDIS_PASSWORD=GantiPasswordRedisStaging123!
+ConnectionStrings__Redis=redis:6379,password=GantiPasswordRedisStaging123!
 
 Jwt__Key=INVENTORY_NET_STAGING_JWT_SECRET_KEY_2026_TEST_KEY_MUST_BE_LONG_AND_SECURE!
 Jwt__Issuer=InventoryNetApi
@@ -212,5 +213,5 @@ NEXT_PUBLIC_API_BASE_URL=https://staging.namadomain.com
 4. Buat 2 Environment jika belum ada:
    * **`production`**
    * **`staging`**
-5. Masuk ke masing-masing environment $\rightarrow$ klik **Add secret**.
+5. Masuk ke masing-masing environment $\rightarrow$ klik **Add secret** (serta kunci **Deployment branches** sesuai panduan di [`github_actions_setup.md`](./github_actions_setup.md)).
 6. Masukkan nama secret dan nilainya sesuai tabel di atas.
