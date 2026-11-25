@@ -153,10 +153,12 @@ fi
   [ -n "${EXT_BACKEND_PORT}" ] && BACKEND_PORT="${EXT_BACKEND_PORT}"
   [ -n "${EXT_ORACLE_PORT}" ] && ORACLE_PORT="${EXT_ORACLE_PORT}"
 
-  # Ambil nama container dari compose file yang aktif
-  EXPECTED_FRONTEND=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'frontend' | awk '{print $2}' || echo "inventory-frontend")
-  EXPECTED_BACKEND=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'backend' | awk '{print $2}' || echo "inventory-backend")
-  EXPECTED_ORACLE=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'oracle' | awk '{print $2}' || echo "inventory-oracle")
+  # Ambil nama container dan project dari compose file yang aktif
+  EXPECTED_FRONTEND=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'frontend' | awk '{print $2}' | tr -d '\r' || echo "inventory-frontend")
+  EXPECTED_BACKEND=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'backend' | awk '{print $2}' | tr -d '\r' || echo "inventory-backend")
+  EXPECTED_ORACLE=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'oracle' | awk '{print $2}' | tr -d '\r' || echo "inventory-oracle")
+  EXPECTED_REDIS=$(grep -E '^\s*container_name:' "${COMPOSE_FILE}" | grep -E 'redis' | awk '{print $2}' | tr -d '\r' || echo "inventory-redis")
+  EXPECTED_PROJECT=$(grep -E '^name:' "${COMPOSE_FILE}" | awk '{print $2}' | tr -d '\r' || true)
 
   echo "[deploy] Memeriksa ketersediaan port (Collision Protection)..."
   if ! check_port_collision "${FRONTEND_PORT}" "${EXPECTED_FRONTEND}" "Frontend"; then
@@ -180,6 +182,31 @@ fi
   fi
 
   save_current_state
+
+  # Migrasi otomatis sekali jalan jika container lama dibuat dengan Compose Project Name berbeda (misal 'staging' -> 'inventory-staging').
+  # docker rm -f hanya menghapus container sementara, TIDAK menghapus named volumes (data Oracle/Redis/Uploads tetap aman 100%).
+  if [ -n "${EXPECTED_PROJECT}" ]; then
+    MIGRATED_ANY=false
+    for cname in "${EXPECTED_ORACLE}" "${EXPECTED_REDIS}" "${EXPECTED_BACKEND}" "${EXPECTED_FRONTEND}"; do
+      [ -z "${cname}" ] && continue
+      CURRENT_PROJECT=$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project" }}' "${cname}" 2>/dev/null || true)
+      if [ -n "${CURRENT_PROJECT}" ] && [ "${CURRENT_PROJECT}" != "${EXPECTED_PROJECT}" ]; then
+        echo "[deploy] Migrasi container '${cname}' dari compose project '${CURRENT_PROJECT}' ke '${EXPECTED_PROJECT}'..."
+        docker rm -f "${cname}" >/dev/null 2>&1 || true
+        MIGRATED_ANY=true
+      fi
+    done
+
+    if [ "${MIGRATED_ANY}" = "true" ]; then
+      EXPECTED_NETWORK=$(grep -A2 -E '^networks:' "${COMPOSE_FILE}" | grep -E '^\s*name:' | awk '{print $2}' | tr -d '\r' || true)
+      if [ -n "${EXPECTED_NETWORK}" ]; then
+        NET_PROJECT=$(docker network inspect -f '{{ index .Labels "com.docker.compose.project" }}' "${EXPECTED_NETWORK}" 2>/dev/null || true)
+        if [ -n "${NET_PROJECT}" ] && [ "${NET_PROJECT}" != "${EXPECTED_PROJECT}" ]; then
+          docker network rm "${EXPECTED_NETWORK}" >/dev/null 2>&1 || true
+        fi
+      fi
+    fi
+  fi
 
   # 1. Start database & cache services first
   echo "[deploy] Starting database & cache services (oracle, redis)..."
