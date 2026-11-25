@@ -126,6 +126,12 @@ jobs:
             CONTAINER_NAME="inventory-oracle"
           fi
 
+          # Pastikan direktori target & backups ada dengan kepemilikan user yang benar
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "if [ ! -d '${VPS_PATH}' ]; then sudo mkdir -p '${VPS_PATH}'; fi && \
+             if [ ! -w '${VPS_PATH}' ]; then sudo chown -R '${VPS_USER}:${VPS_USER}' '${VPS_PATH}'; fi && \
+             mkdir -p '${VPS_PATH}/backups'"
+
           # Upload script backup ke VPS
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/backup/backup-oracle.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/backup-oracle.sh"
 

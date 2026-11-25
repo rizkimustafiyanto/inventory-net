@@ -233,7 +233,9 @@ jobs:
           set -euo pipefail
           echo "[deploy] Connecting to Staging VPS at ${VPS_HOST}..."
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
-            "mkdir -p ${VPS_PATH}/backend ${VPS_PATH}/frontend ${VPS_PATH}/deploy/logs ${VPS_PATH}/deploy/state"
+            "if [ ! -d '${VPS_PATH}' ]; then sudo mkdir -p '${VPS_PATH}'; fi && \
+             if [ ! -w '${VPS_PATH}' ]; then sudo chown -R '${VPS_USER}:${VPS_USER}' '${VPS_PATH}'; fi && \
+             mkdir -p '${VPS_PATH}/backend' '${VPS_PATH}/frontend' '${VPS_PATH}/deploy/logs' '${VPS_PATH}/deploy/state' '${VPS_PATH}/backups'"
 
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 /tmp/envs/backend.env "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/backend/.env.production"
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 /tmp/envs/frontend.env "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/frontend/.env.production"
