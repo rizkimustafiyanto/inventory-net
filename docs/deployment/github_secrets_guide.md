@@ -99,10 +99,7 @@ Jika Staging dan Production berada di **1 VPS fisik yang sama**:
   * Production: `/opt/inventory_prod`
   * Staging: `/opt/inventory_staging`
 * **Cara Menyiapkannya di VPS**:
-  ```bash
-  sudo mkdir -p /opt/inventory_prod /opt/inventory_staging
-  sudo chown -R $USER:$USER /opt/inventory_prod /opt/inventory_staging
-  ```
+  Direktori `VPS_PATH` sekarang **otomatis dibuat dan diatur kepemilikannya (`sudo mkdir -p` + `sudo chown -R`) oleh workflow saat deploy pertama kali**, sehingga Anda tidak perlu login ke server untuk membuatnya secara manual untuk project baru *(pastikan saja `VPS_USER` memiliki akses `sudo` tanpa password)*.
 
 ---
 
