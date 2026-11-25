@@ -13,6 +13,7 @@ BACKEND_ENV_FILE="${BACKEND_ENV_FILE:-${VPS_PATH}/backend/.env.production}"
 FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE:-${VPS_PATH}/frontend/.env.production}"
 IMAGE_TAG="${IMAGE_TAG:-latest}"
 REGISTRY_OWNER="${REGISTRY_OWNER:-}"
+ORPHANED_MIGRATION_POLICY="${ORPHANED_MIGRATION_POLICY:-strict}"
 
 # Port Configuration from environment / secrets
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
@@ -134,6 +135,7 @@ fi
   echo " Starting deployment at $(date)"
   echo " Image Tag: ${IMAGE_TAG}"
   echo " Compose File: ${COMPOSE_FILE}"
+  echo " Migration Policy: ${ORPHANED_MIGRATION_POLICY}"
   echo " Target Ports: Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}"
   echo "=========================================="
 
@@ -249,6 +251,7 @@ EOF
   FRONTEND_PORT="${FRONTEND_PORT}" \
   BACKEND_PORT="${BACKEND_PORT}" \
   ORACLE_PORT="${ORACLE_PORT}" \
+  ORPHANED_MIGRATION_POLICY="${ORPHANED_MIGRATION_POLICY}" \
   docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
 
   # Quick container health check

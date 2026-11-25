@@ -55,6 +55,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
+      DatabaseMigration__OrphanedMigrationPolicy: "${ORPHANED_MIGRATION_POLICY:-strict}"
       DOTNET_USE_POLLING_FILE_WATCHER: "true"
       DOTNET_WATCH_RESTART_ON_RUDE_EDIT: "true"
       ConnectionStrings__OracleConnection: "Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=YourPassword123;"
