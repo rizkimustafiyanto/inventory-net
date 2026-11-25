@@ -24,14 +24,57 @@ permissions:
   contents: read
 
 concurrency:
-  group: uploads-backup-${{ github.event.inputs.environment || 'production' }}
+  group: uploads-backup-${{ github.event.inputs.environment || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  backup:
-    name: Backup Uploads Volume
+  validate-guard:
+    name: Validate Branch & Environment Guard
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'production' }}
+    outputs:
+      target_env: ${{ steps.resolve_env.outputs.target_env }}
+    steps:
+      - name: Verify Branch & Resolve Target Environment
+        id: resolve_env
+        run: |
+          set -euo pipefail
+          EVENT_NAME="${{ github.event_name }}"
+          CURRENT_REF="${{ github.ref }}"
+
+          if [ "${EVENT_NAME}" = "schedule" ]; then
+            if [ "${CURRENT_REF}" = "refs/heads/main" ]; then
+              TARGET_ENV="production"
+            elif [ "${CURRENT_REF}" = "refs/heads/staging" ]; then
+              TARGET_ENV="staging"
+            else
+              echo "::error::[SECURITY GUARD] Scheduled uploads backup hanya diizinkan dari branch 'main' atau 'staging'. Branch saat ini: ${CURRENT_REF}"
+              exit 1
+            fi
+            echo "[guard] Scheduled uploads backup resolved target environment '${TARGET_ENV}' from branch '${CURRENT_REF}'."
+          else
+            TARGET_ENV="${{ github.event.inputs.environment }}"
+            if [ "${TARGET_ENV}" = "production" ] && [ "${CURRENT_REF}" != "refs/heads/main" ]; then
+              echo "::error::[SECURITY GUARD] Uploads backup environment 'production' HANYA diizinkan dari branch 'main'! Branch saat ini: ${CURRENT_REF}"
+              exit 1
+            fi
+            if [ "${TARGET_ENV}" = "staging" ] && [ "${CURRENT_REF}" != "refs/heads/staging" ]; then
+              echo "::error::[SECURITY GUARD] Uploads backup environment 'staging' HANYA diizinkan dari branch 'staging'! Branch saat ini: ${CURRENT_REF}"
+              exit 1
+            fi
+            if [ "${TARGET_ENV}" != "production" ] && [ "${TARGET_ENV}" != "staging" ]; then
+              echo "::error::Target environment tidak valid: ${TARGET_ENV}"
+              exit 1
+            fi
+            echo "[guard] Manual uploads backup verified: branch '${CURRENT_REF}' -> environment '${TARGET_ENV}'."
+          fi
+
+          echo "target_env=${TARGET_ENV}" >> "$GITHUB_OUTPUT"
+
+  backup:
+    name: Backup Uploads Volume (${{ needs.validate-guard.outputs.target_env }})
+    needs: validate-guard
+    runs-on: ubuntu-latest
+    environment: ${{ needs.validate-guard.outputs.target_env }}
     env:
       TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
     steps:
@@ -71,7 +114,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
-          TARGET_ENV: ${{ github.event.inputs.environment || 'production' }}
+          TARGET_ENV: ${{ needs.validate-guard.outputs.target_env }}
         run: |
           set -euo pipefail
           echo "[backup-uploads] Preparing uploads backup on VPS ${VPS_HOST} for environment: ${TARGET_ENV}..."

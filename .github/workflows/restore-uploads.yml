@@ -27,8 +27,10 @@ concurrency:
 
 jobs:
   validate-guard:
-    name: Validate Security Confirmation
+    name: Validate Branch & Security Confirmation
     runs-on: ubuntu-latest
+    outputs:
+      target_env: ${{ steps.resolve_env.outputs.target_env }}
     steps:
       - name: Verify Confirmation Text
         run: |
@@ -37,11 +39,34 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Branch Matches Target Environment
+        id: resolve_env
+        run: |
+          set -euo pipefail
+          TARGET_ENV="${{ github.event.inputs.environment }}"
+          CURRENT_REF="${{ github.ref }}"
+
+          if [ "${TARGET_ENV}" = "production" ] && [ "${CURRENT_REF}" != "refs/heads/main" ]; then
+            echo "::error::[SECURITY GUARD] Uploads restore environment 'production' HANYA diizinkan dari branch 'main'! Branch saat ini: ${CURRENT_REF}"
+            exit 1
+          fi
+          if [ "${TARGET_ENV}" = "staging" ] && [ "${CURRENT_REF}" != "refs/heads/staging" ]; then
+            echo "::error::[SECURITY GUARD] Uploads restore environment 'staging' HANYA diizinkan dari branch 'staging'! Branch saat ini: ${CURRENT_REF}"
+            exit 1
+          fi
+          if [ "${TARGET_ENV}" != "production" ] && [ "${TARGET_ENV}" != "staging" ]; then
+            echo "::error::Target environment tidak valid: ${TARGET_ENV}"
+            exit 1
+          fi
+
+          echo "[guard] Uploads restore verified: branch '${CURRENT_REF}' -> environment '${TARGET_ENV}'."
+          echo "target_env=${TARGET_ENV}" >> "$GITHUB_OUTPUT"
+
   restore:
-    name: Execute Uploads Restore
+    name: Execute Uploads Restore (${{ needs.validate-guard.outputs.target_env }})
     needs: validate-guard
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ needs.validate-guard.outputs.target_env }}
     env:
       TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
     steps:
@@ -80,7 +105,7 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
-          TARGET_ENV: ${{ github.event.inputs.environment }}
+          TARGET_ENV: ${{ needs.validate-guard.outputs.target_env }}
           BACKUP_FILE_NAME: ${{ github.event.inputs.backup_file_name }}
         run: |
           set -euo pipefail
@@ -107,7 +132,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TARGET_ENV: ${{ github.event.inputs.environment }}
+          TARGET_ENV: ${{ needs.validate-guard.outputs.target_env }}
           BACKUP_FILE_NAME: ${{ github.event.inputs.backup_file_name }}
         run: |
           set -euo pipefail
