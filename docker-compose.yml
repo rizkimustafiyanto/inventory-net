@@ -13,6 +13,12 @@ services:
       - oracle_data:/opt/oracle/oradata
     networks:
       - inventory-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 25
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
@@ -42,11 +48,14 @@ services:
       target: dev
     restart: unless-stopped
     depends_on:
-      - oracle
-      - redis
+      oracle:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: "Development"
       ASPNETCORE_URLS: "http://+:8080"
+      DatabaseMigration__OrphanedMigrationPolicy: "${ORPHANED_MIGRATION_POLICY:-strict}"
       DOTNET_USE_POLLING_FILE_WATCHER: "true"
       DOTNET_WATCH_RESTART_ON_RUDE_EDIT: "true"
       ConnectionStrings__OracleConnection: "Data Source=oracle:1521/FREEPDB1;User Id=inventory_user;Password=YourPassword123;"

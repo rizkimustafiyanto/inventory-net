@@ -4,6 +4,16 @@ on:
   push:
     branches: [staging]
   workflow_dispatch:
+    inputs:
+      orphaned_migration_policy:
+        description: 'Kebijakan Migration Guard (pakai strict untuk normal, allow_once/prune_history HANYA darurat)'
+        required: false
+        default: 'strict'
+        type: choice
+        options:
+          - 'strict'
+          - 'allow_once'
+          - 'prune_history'
 
 permissions:
   contents: read
@@ -44,6 +54,27 @@ jobs:
 
       - name: Run Backend Unit Tests
         run: dotnet test be-net/tests/Inventory.Application.UnitTests/Inventory.Application.UnitTests.csproj -c Release --no-build --verbosity normal
+
+      - name: Verify EF Core Migrations Integrity
+        run: |
+          set -euo pipefail
+          dotnet tool install --global dotnet-ef --version 8.0.8 || dotnet tool update --global dotnet-ef --version 8.0.8
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          echo "[ef-check] Checking for pending unmigrated model changes..."
+          dotnet ef migrations has-pending-model-changes \
+            --project be-net/src/Inventory.Infrastructure \
+            --startup-project be-net/src/Inventory.Api \
+            --configuration Release \
+            --no-build
+          echo "[ef-check] Generating dry-run idempotent SQL script to validate migrations..."
+          dotnet ef migrations script --idempotent \
+            --project be-net/src/Inventory.Infrastructure \
+            --startup-project be-net/src/Inventory.Api \
+            --configuration Release \
+            --no-build \
+            -o /tmp/ef-verify.sql
+          test -s /tmp/ef-verify.sql
+          echo "[ef-check] EF Core migrations and ModelSnapshot are synchronized."
 
       # Frontend Checks
       - name: Setup Node.js 20
@@ -141,6 +172,7 @@ jobs:
       BACKEND_PORT: ${{ secrets.BACKEND_PORT || '8081' }}
       ORACLE_PORT: ${{ secrets.ORACLE_PORT || '1522' }}
       TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+      ORPHANED_MIGRATION_POLICY: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.orphaned_migration_policy || 'strict' }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -221,6 +253,7 @@ jobs:
              FRONTEND_PORT=${FRONTEND_PORT} \
              BACKEND_PORT=${BACKEND_PORT} \
              ORACLE_PORT=${ORACLE_PORT} \
+             ORPHANED_MIGRATION_POLICY=${ORPHANED_MIGRATION_POLICY} \
              bash ${VPS_PATH}/deploy-remote.sh deploy"
 
       - name: Update Nginx Config (Staging)

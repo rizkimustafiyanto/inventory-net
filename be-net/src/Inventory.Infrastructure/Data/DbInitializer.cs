@@ -1,39 +1,44 @@
+using System.Data;
 using Inventory.Application.Interfaces;
 using Inventory.Domain.Entities;
 using Inventory.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Logging;
 
 namespace Inventory.Infrastructure.Data;
 
 public static class DbInitializer
 {
-    public static async Task InitializeAsync(ApplicationDbContext context, IPasswordHasher passwordHasher)
-    {
-        // Creates tables if they don't exist; ignore if already created in Oracle
-        try
-        {
-            await context.Database.EnsureCreatedAsync();
-        }
-        catch (Exception ex) when (ex.Message.Contains("ORA-00955") || ex.ToString().Contains("ORA-00955"))
-        {
-            // Table already exists in Oracle, safe to continue
-        }
+    private static readonly string[] LegacyEnsureCreatedBaselineMigrations =
+    [
+        "20261119041229_InitialCreate",
+        "20261123043614_AddAvatarUrlToUser"
+    ];
 
-        // Safe idempotent check: Ensure avatar_url column exists in existing m_user table
-        try
+    public static async Task InitializeAsync(
+        ApplicationDbContext context,
+        IPasswordHasher passwordHasher,
+        ILogger? logger = null,
+        string? orphanedMigrationPolicy = null,
+        CancellationToken cancellationToken = default)
+    {
+        var policy = NormalizePolicy(orphanedMigrationPolicy);
+
+        if (!context.Database.IsRelational())
         {
-            await context.Database.ExecuteSqlRawAsync("ALTER TABLE \"m_user\" ADD \"AvatarUrl\" VARCHAR2(500) NULL");
+            await context.Database.EnsureCreatedAsync(cancellationToken);
         }
-        catch
+        else
         {
-            try
-            {
-                await context.Database.ExecuteSqlRawAsync("ALTER TABLE m_user ADD avatar_url VARCHAR2(500) NULL");
-            }
-            catch
-            {
-                // Column already exists, safe to ignore
-            }
+            await EnsureLegacyDatabaseBaselinedAsync(context, logger, cancellationToken);
+            await EnforceOrphanedMigrationGuardAsync(context, policy, logger, cancellationToken);
+
+            logger?.LogInformation("Applying pending EF Core migrations (if any)...");
+            await context.Database.MigrateAsync(cancellationToken);
+            logger?.LogInformation("EF Core migrations are up to date.");
         }
 
         // 1. Seed Users
@@ -206,6 +211,211 @@ public static class DbInitializer
 
                 await context.StockReports.AddRangeAsync(reports);
                 await context.SaveChangesAsync();
+            }
+        }
+    }
+
+    private static string NormalizePolicy(string? orphanedMigrationPolicy)
+    {
+        var normalized = string.IsNullOrWhiteSpace(orphanedMigrationPolicy)
+            ? "strict"
+            : orphanedMigrationPolicy.Trim().ToLowerInvariant();
+
+        return normalized switch
+        {
+            "strict" or "allow_once" or "prune_history" => normalized,
+            _ => throw new MigrationGuardException(
+                $"Invalid DatabaseMigration:OrphanedMigrationPolicy '{orphanedMigrationPolicy}'. " +
+                "Allowed values: 'strict', 'allow_once', 'prune_history'.")
+        };
+    }
+
+    /// <summary>
+    /// Safely transitions existing Oracle databases previously created with EnsureCreatedAsync()
+    /// to EF Core Migrations by creating __EFMigrationsHistory and recording the baseline migrations
+    /// so MigrateAsync() does not fail with ORA-00955 on existing tables.
+    /// </summary>
+    private static async Task EnsureLegacyDatabaseBaselinedAsync(
+        ApplicationDbContext context,
+        ILogger? logger,
+        CancellationToken cancellationToken)
+    {
+        var historyRepository = context.GetService<IHistoryRepository>();
+        if (await historyRepository.ExistsAsync(cancellationToken))
+        {
+            return;
+        }
+
+        if (!await TableExistsAsync(context, "m_user", cancellationToken))
+        {
+            return;
+        }
+
+        logger?.LogWarning(
+            "Existing schema detected without __EFMigrationsHistory (created via EnsureCreated). " +
+            "Running one-time EF Core migration baselining...");
+
+        // Ensure legacy column added prior to MigrateAsync adoption exists before marking AddAvatarUrlToUser as applied
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE \"m_user\" ADD \"AvatarUrl\" VARCHAR2(500) NULL",
+                cancellationToken);
+        }
+        catch
+        {
+            // Column already exists, safe to continue
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            historyRepository.GetCreateIfNotExistsScript(),
+            cancellationToken);
+
+        var codeMigrations = context.Database.GetMigrations().ToHashSet(StringComparer.Ordinal);
+        var productVersion = typeof(DbContext).Assembly.GetName().Version?.ToString(3) ?? "8.0.8";
+
+        foreach (var baselineId in LegacyEnsureCreatedBaselineMigrations)
+        {
+            if (!codeMigrations.Contains(baselineId))
+            {
+                continue;
+            }
+
+            var existsCount = await ExecuteScalarIntAsync(
+                context,
+                "SELECT COUNT(*) FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = :migrationId",
+                [("migrationId", baselineId)],
+                cancellationToken);
+
+            if (existsCount == 0)
+            {
+                await context.Database.ExecuteSqlRawAsync(
+                    "INSERT INTO \"__EFMigrationsHistory\" (\"MigrationId\", \"ProductVersion\") VALUES ({0}, {1})",
+                    [baselineId, productVersion],
+                    cancellationToken);
+
+                logger?.LogInformation("Baselined existing database with migration {MigrationId}.", baselineId);
+            }
+        }
+    }
+
+    private static async Task EnforceOrphanedMigrationGuardAsync(
+        ApplicationDbContext context,
+        string policy,
+        ILogger? logger,
+        CancellationToken cancellationToken)
+    {
+        var historyRepository = context.GetService<IHistoryRepository>();
+        if (!await historyRepository.ExistsAsync(cancellationToken))
+        {
+            return;
+        }
+
+        var appliedMigrations = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToList();
+        var codeMigrations = context.Database.GetMigrations().ToHashSet(StringComparer.Ordinal);
+        var orphanedMigrations = appliedMigrations
+            .Where(migrationId => !codeMigrations.Contains(migrationId))
+            .ToList();
+
+        if (orphanedMigrations.Count == 0)
+        {
+            return;
+        }
+
+        var orphanedList = string.Join(", ", orphanedMigrations);
+
+        switch (policy)
+        {
+            case "strict":
+                throw new MigrationGuardException(
+                    $"[MIGRATION GUARD BLOCKED] Database already has applied migration(s) missing from application code: [{orphanedList}]. " +
+                    "Refusing to boot to prevent schema drift / production corruption. " +
+                    "Recovery options: " +
+                    "(1) Recommended: restore the migration file(s) from Git and create a forward corrective migration (dotnet ef migrations add Revert_...); " +
+                    "(2) Restore database from pre-deploy backup via Database Restore workflow; " +
+                    "(3) Emergency bypass via manual workflow_dispatch with orphaned_migration_policy='allow_once' or 'prune_history' (only after verifying DB schema matches ModelSnapshot).");
+
+            case "allow_once":
+                logger?.LogWarning(
+                    "[MIGRATION AUDIT WARNING] Orphaned migration(s) detected in DB [{OrphanedMigrations}], " +
+                    "but startup is continuing because policy is 'allow_once'. " +
+                    "Remember: subsequent normal deployments ('strict') will remain blocked until history or migrations are reconciled.",
+                    orphanedList);
+                break;
+
+            case "prune_history":
+                logger?.LogWarning(
+                    "[MIGRATION AUDIT] Policy is 'prune_history'. Removing orphaned migration record(s) from __EFMigrationsHistory: [{OrphanedMigrations}]...",
+                    orphanedList);
+
+                await using (var tx = await context.Database.BeginTransactionAsync(cancellationToken))
+                {
+                    foreach (var migrationId in orphanedMigrations)
+                    {
+                        await context.Database.ExecuteSqlRawAsync(
+                            "DELETE FROM \"__EFMigrationsHistory\" WHERE \"MigrationId\" = {0}",
+                            [migrationId],
+                            cancellationToken);
+
+                        logger?.LogWarning(
+                            "[MIGRATION AUDIT] Deleted orphaned migration record '{MigrationId}' from __EFMigrationsHistory.",
+                            migrationId);
+                    }
+
+                    await tx.CommitAsync(cancellationToken);
+                }
+                break;
+        }
+    }
+
+    private static async Task<bool> TableExistsAsync(
+        ApplicationDbContext context,
+        string tableName,
+        CancellationToken cancellationToken)
+    {
+        var count = await ExecuteScalarIntAsync(
+            context,
+            "SELECT COUNT(*) FROM USER_TABLES WHERE UPPER(TABLE_NAME) = :tableName",
+            [("tableName", tableName.ToUpperInvariant())],
+            cancellationToken);
+
+        return count > 0;
+    }
+
+    private static async Task<int> ExecuteScalarIntAsync(
+        ApplicationDbContext context,
+        string sql,
+        IReadOnlyList<(string Name, object Value)> parameters,
+        CancellationToken cancellationToken)
+    {
+        var connection = context.Database.GetDbConnection();
+        var shouldClose = connection.State != ConnectionState.Open;
+        if (shouldClose)
+        {
+            await connection.OpenAsync(cancellationToken);
+        }
+
+        try
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Transaction = context.Database.CurrentTransaction?.GetDbTransaction();
+            foreach (var (name, value) in parameters)
+            {
+                var param = command.CreateParameter();
+                param.ParameterName = name;
+                param.Value = value;
+                command.Parameters.Add(param);
+            }
+
+            var result = await command.ExecuteScalarAsync(cancellationToken);
+            return Convert.ToInt32(result);
+        }
+        finally
+        {
+            if (shouldClose)
+            {
+                await connection.CloseAsync();
             }
         }
     }

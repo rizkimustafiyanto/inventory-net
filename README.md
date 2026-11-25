@@ -4,6 +4,8 @@ Sistem Manajemen Inventaris & Mutasi Stok skala enterprise yang dibangun menggun
 
 Didesain untuk keandalan tinggi, pemisahan tanggung jawab murni (*Separation of Concerns*), penanganan *concurrency* mutasi stok, serta performa tinggi dengan *database-level pagination*.
 
+> 📘 **Panduan Pengembang Lengkap**: Untuk panduan langkah demi langkah pembuatan tabel baru, migrasi EF Core, penggunaan Redis (distributed locking & caching), SignalR WebSockets real-time, serta implementasi CRUD end-to-end, silakan baca [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md).
+
 ---
 
 ## 🏗 1. Arsitektur Sistem

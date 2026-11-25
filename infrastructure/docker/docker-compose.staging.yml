@@ -60,6 +60,7 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__Redis=${ConnectionStrings__Redis:-redis:6379,password=${REDIS_PASSWORD:-YourRedisPassword123}}
+      - DatabaseMigration__OrphanedMigrationPolicy=${ORPHANED_MIGRATION_POLICY:-strict}
     ports:
       # Bind ke 127.0.0.1 agar hanya bisa diakses via Nginx reverse proxy dan port bisa disesuaikan jika bentrok
       - "127.0.0.1:${BACKEND_PORT:-8081}:8080"
