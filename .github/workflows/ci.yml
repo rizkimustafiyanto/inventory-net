@@ -43,6 +43,27 @@ jobs:
       - name: Run Unit Tests
         run: dotnet test be-net/tests/Inventory.Application.UnitTests/Inventory.Application.UnitTests.csproj -c Release --no-build --verbosity normal
 
+      - name: Verify EF Core Migrations Integrity
+        run: |
+          set -euo pipefail
+          dotnet tool install --global dotnet-ef --version 8.0.8 || dotnet tool update --global dotnet-ef --version 8.0.8
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          echo "[ef-check] Checking for pending unmigrated model changes..."
+          dotnet ef migrations has-pending-model-changes \
+            --project be-net/src/Inventory.Infrastructure \
+            --startup-project be-net/src/Inventory.Api \
+            --configuration Release \
+            --no-build
+          echo "[ef-check] Generating dry-run idempotent SQL script to validate migrations..."
+          dotnet ef migrations script --idempotent \
+            --project be-net/src/Inventory.Infrastructure \
+            --startup-project be-net/src/Inventory.Api \
+            --configuration Release \
+            --no-build \
+            -o /tmp/ef-verify.sql
+          test -s /tmp/ef-verify.sql
+          echo "[ef-check] EF Core migrations and ModelSnapshot are synchronized."
+
   frontend-ci:
     name: Frontend CI (Next.js 16)
     runs-on: ubuntu-latest

@@ -7,6 +7,15 @@ on:
         description: 'Type "deploy" to confirm production release'
         required: true
         default: 'deploy'
+      orphaned_migration_policy:
+        description: 'Kebijakan Migration Guard (pakai strict untuk normal, allow_once/prune_history HANYA darurat)'
+        required: false
+        default: 'strict'
+        type: choice
+        options:
+          - 'strict'
+          - 'allow_once'
+          - 'prune_history'
 
 permissions:
   contents: read
@@ -65,6 +74,27 @@ jobs:
 
       - name: Run Backend Unit Tests
         run: dotnet test be-net/tests/Inventory.Application.UnitTests/Inventory.Application.UnitTests.csproj -c Release --no-build --verbosity normal
+
+      - name: Verify EF Core Migrations Integrity
+        run: |
+          set -euo pipefail
+          dotnet tool install --global dotnet-ef --version 8.0.8 || dotnet tool update --global dotnet-ef --version 8.0.8
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          echo "[ef-check] Checking for pending unmigrated model changes..."
+          dotnet ef migrations has-pending-model-changes \
+            --project be-net/src/Inventory.Infrastructure \
+            --startup-project be-net/src/Inventory.Api \
+            --configuration Release \
+            --no-build
+          echo "[ef-check] Generating dry-run idempotent SQL script to validate migrations..."
+          dotnet ef migrations script --idempotent \
+            --project be-net/src/Inventory.Infrastructure \
+            --startup-project be-net/src/Inventory.Api \
+            --configuration Release \
+            --no-build \
+            -o /tmp/ef-verify.sql
+          test -s /tmp/ef-verify.sql
+          echo "[ef-check] EF Core migrations and ModelSnapshot are synchronized."
 
       # Frontend Checks
       - name: Setup Node.js 20
@@ -160,6 +190,7 @@ jobs:
       BACKEND_PORT: ${{ secrets.BACKEND_PORT || '8080' }}
       ORACLE_PORT: ${{ secrets.ORACLE_PORT || '1521' }}
       TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+      ORPHANED_MIGRATION_POLICY: ${{ github.event.inputs.orphaned_migration_policy || 'strict' }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -210,6 +241,38 @@ jobs:
           echo "$VPS_SSH_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
+      - name: Pre-Deploy Database Backup (Production Safety Snapshot)
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
+        run: |
+          set -euo pipefail
+          echo "[pre-deploy] Memeriksa apakah container Oracle Production (inventory-oracle) sudah berjalan..."
+          ORACLE_RUNNING=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "docker inspect -f '{{.State.Running}}' inventory-oracle 2>/dev/null || echo 'false'")
+
+          if [ "${ORACLE_RUNNING}" != "true" ]; then
+            echo "[pre-deploy] Container 'inventory-oracle' belum berjalan (first-time production setup). Pre-deploy backup dilewati."
+            echo "PRE_DEPLOY_BACKUP=none" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "[pre-deploy] Mengambil snapshot backup Oracle Production sebelum deployment..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" "mkdir -p ${VPS_PATH}/backups"
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/backup/backup-oracle.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/backup-oracle.sh"
+
+          BACKUP_OUTPUT=$(ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
+            "chmod +x ${VPS_PATH}/backup-oracle.sh && \
+             CONTAINER_NAME=inventory-oracle \
+             VPS_PATH=${VPS_PATH} \
+             bash ${VPS_PATH}/backup-oracle.sh production")
+
+          echo "${BACKUP_OUTPUT}"
+          BACKUP_NAME=$(echo "${BACKUP_OUTPUT}" | grep -m 1 "OUTPUT_BACKUP_NAME=" | cut -d'=' -f2 || true)
+          echo "PRE_DEPLOY_BACKUP=${BACKUP_NAME:-created}" >> "$GITHUB_ENV"
+          echo "[pre-deploy] Snapshot backup berhasil dibuat: ${BACKUP_NAME:-created}"
+
       - name: Deploy to Production VPS via SSH
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -240,6 +303,7 @@ jobs:
              FRONTEND_PORT=${FRONTEND_PORT} \
              BACKEND_PORT=${BACKEND_PORT} \
              ORACLE_PORT=${ORACLE_PORT} \
+             ORPHANED_MIGRATION_POLICY=${ORPHANED_MIGRATION_POLICY} \
              bash ${VPS_PATH}/deploy-remote.sh deploy"
 
       - name: Update Nginx Config (Production)
@@ -309,13 +373,14 @@ jobs:
             exit 0
           fi
           TARGET_DOMAIN="${APP_DOMAIN:-${CERTBOT_DOMAINS:-Server IP}}"
+          PRE_BACKUP_INFO="${PRE_DEPLOY_BACKUP:-none}"
           DEPLOY_TIME=$(TZ="Asia/Jakarta" date +"%Y-%m-%d %H:%M:%S WIB")
           if [ "${STATUS}" = "success" ]; then
             ICON="🚀"
-            TEXT="<b>${ICON} [DEPLOYMENT SUKSES] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Production</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A🔖 <b>Image Tag:</b> <code>${IMAGE_TAG}</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A🌐 <b>Domain:</b> https://${TARGET_DOMAIN}%0A🛡️ <b>SSL/Proxy:</b> Cloudflare Tunnel%0A🔌 <b>Ports:</b> Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}%0A🔗 <b>Run Log:</b> <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Lihat Detail Log</a>%0A✅ <b>Status:</b> Layanan Aktif dan Siap Digunakan!%0A━━━━━━━━━━━━━━━━━━━━"
+            TEXT="<b>${ICON} [DEPLOYMENT SUKSES] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Production</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A🔖 <b>Image Tag:</b> <code>${IMAGE_TAG}</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A🌐 <b>Domain:</b> https://${TARGET_DOMAIN}%0A🛡️ <b>SSL/Proxy:</b> Cloudflare Tunnel%0A💾 <b>Pre-Deploy Backup:</b> <code>${PRE_BACKUP_INFO}</code>%0A🔌 <b>Ports:</b> Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}%0A🔗 <b>Run Log:</b> <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Lihat Detail Log</a>%0A✅ <b>Status:</b> Layanan Aktif dan Siap Digunakan!%0A━━━━━━━━━━━━━━━━━━━━"
           else
             ICON="❌"
-            TEXT="<b>${ICON} [DEPLOYMENT GAGAL / ABORT] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Production</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A🔌 <b>Target Ports:</b> Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}%0A⚠️ <b>Perhatian:</b> Deployment dibatalkan atau gagal! Kemungkinan terjadi bentrok port (Collision) atau error runtime server.%0A🔗 <b>Run Log:</b> <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Cek Penyebab di Sini</a>%0A━━━━━━━━━━━━━━━━━━━━"
+            TEXT="<b>${ICON} [DEPLOYMENT GAGAL / ABORT] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Environment:</b> <code>Production</code>%0A📅 <b>Waktu:</b> <code>${DEPLOY_TIME}</code>%0A👤 <b>Trigger By:</b> ${{ github.actor }}%0A💾 <b>Pre-Deploy Backup:</b> <code>${PRE_BACKUP_INFO}</code>%0A🔌 <b>Target Ports:</b> Frontend=${FRONTEND_PORT}, Backend=${BACKEND_PORT}, Oracle=${ORACLE_PORT}%0A⚠️ <b>Perhatian:</b> Deployment dibatalkan atau gagal! Kemungkinan terjadi bentrok port (Collision), Migration Guard error, atau error runtime server.%0A🔗 <b>Run Log:</b> <a href=\"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\">Cek Penyebab di Sini</a>%0A━━━━━━━━━━━━━━━━━━━━"
           fi
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d "chat_id=${TELEGRAM_CHAT_ID}" \
