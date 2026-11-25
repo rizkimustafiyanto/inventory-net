@@ -173,23 +173,36 @@ using (var scope = app.Services.CreateScope())
     var logger = services.GetRequiredService<ILogger<Program>>();
     var context = services.GetRequiredService<ApplicationDbContext>();
     var hasher = services.GetRequiredService<IPasswordHasher>();
+    var orphanedMigrationPolicy = builder.Configuration["DatabaseMigration:OrphanedMigrationPolicy"] ?? "strict";
 
     const int maxRetries = 12;
     const int delaySeconds = 6;
     bool initialized = false;
+    Exception? lastException = null;
 
     for (int attempt = 1; attempt <= maxRetries; attempt++)
     {
         try
         {
-            logger.LogInformation("Attempting to connect and initialize database (Attempt {Attempt}/{MaxRetries})...", attempt, maxRetries);
-            await DbInitializer.InitializeAsync(context, hasher);
+            logger.LogInformation(
+                "Attempting to connect and initialize database (Attempt {Attempt}/{MaxRetries}, Policy: {Policy})...",
+                attempt,
+                maxRetries,
+                orphanedMigrationPolicy);
+
+            await DbInitializer.InitializeAsync(context, hasher, logger, orphanedMigrationPolicy);
             logger.LogInformation("Database initialized and seeded successfully.");
             initialized = true;
             break;
         }
+        catch (MigrationGuardException ex)
+        {
+            logger.LogCritical(ex, "Fatal migration guard failure during startup. Aborting immediately.");
+            throw;
+        }
         catch (Exception ex)
         {
+            lastException = ex;
             logger.LogWarning("Database connection not ready yet ({Attempt}/{MaxRetries}): {Message}. Retrying in {Delay}s...", attempt, maxRetries, ex.Message, delaySeconds);
             if (attempt < maxRetries)
             {
@@ -200,7 +213,8 @@ using (var scope = app.Services.CreateScope())
 
     if (!initialized)
     {
-        logger.LogError("Failed to initialize database after {MaxRetries} attempts.", maxRetries);
+        logger.LogCritical(lastException, "Failed to initialize database after {MaxRetries} attempts.", maxRetries);
+        throw new InvalidOperationException($"Failed to initialize database after {maxRetries} attempts.", lastException);
     }
 }
 
