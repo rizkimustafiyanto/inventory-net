@@ -20,7 +20,7 @@ services:
     networks:
       - inventory-network
     healthcheck:
-      test: ["CMD", "healthcheck.sh"]
+      test: ["CMD-SHELL", "printf 'WHENEVER SQLERROR EXIT 1\nALTER SESSION SET CONTAINER = FREEPDB1;\nSELECT 111+222 FROM DUAL;\nEXIT;\n' | sqlplus -s / as sysdba | grep -q '333'"]
       interval: 10s
       timeout: 10s
       retries: 30
