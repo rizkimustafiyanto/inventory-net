@@ -189,6 +189,14 @@ Telah disediakan file koleksi Postman siap pakai di dalam folder dokumentasi:
 ## 🛠️ Ringkasan Stack Teknologi
 - **Backend**: C# 12, .NET Core 8, ASP.NET Core Web API, Entity Framework Core 8, Oracle.EntityFrameworkCore 8.
 - **Frontend**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Lucide Icons, Shadcn UI, Axios, TanStack React Query.
-- **Database**: Oracle Database 23c Free.
+- **Database**: Oracle Database 23c Free & Redis 7.
 - **Testing**: xUnit, Moq, FluentAssertions.
-- **DevOps**: Docker, Docker Compose, Multi-stage builds.
+- **DevOps**: Docker, Docker Compose, GitHub Actions CI/CD, Cloudflare Tunnel.
+
+---
+
+## 📚 7. Dokumentasi Lanjutan
+- **[Developer Guide](./docs/DEVELOPER_GUIDE.md)** — Panduan EF Core Migrations, Redis Lock/Cache, SignalR WebSockets, & contoh CRUD.
+- **[GitHub Actions & Isolasi CI/CD](./docs/deployment/github_actions_setup.md)** — Peta seluruh workflow deploy, backup, restore, & 6 lapis isolasi branch/environment.
+- **[Panduan GitHub Secrets](./docs/deployment/github_secrets_guide.md)** — Daftar lengkap secret per environment & template `.env`.
+- **[Playbook Migration & Recovery](./docs/deployment/migration_and_recovery_playbook.md)** — SOP migrasi, cara revert fitur aman, *Orphaned Migration Guard*, hingga *worst-case disaster recovery*.

@@ -30,7 +30,7 @@ Pipeline ini menerapkan 6 lapis isolasi ketat:
    - Di **Settings $\rightarrow$ Environments**, kunci `staging` ke **Selected branches: `staging`** dan `production` ke **Selected branches: `main`** agar guard tidak bisa di-bypass lewat edit YAML di branch lain.
 3. **Migration Guard & Pre-Deploy Snapshot**:
    - Aplikasi memakai `MigrateAsync()` + *Orphaned Migration Guard* (`strict` by default) + Pre-Deploy Backup otomatis khusus Production.
-   - Panduan lengkap penanganan migrasi dari normal hingga *worst-case scenario* tersedia di **[`docs/deployment/migration_and_recovery_playbook.md`](file:///c:/Users/PITCHA/Documents/Project/inventory_net/docs/deployment/migration_and_recovery_playbook.md)**.
+   - Panduan lengkap penanganan migrasi dari normal hingga *worst-case scenario* tersedia di **[`migration_and_recovery_playbook.md`](./migration_and_recovery_playbook.md)**.
 4. **Docker Image Tag (GHCR)**:
    - Staging: `ghcr.io/<owner>/inventory-backend:staging`
    - Production: `ghcr.io/<owner>/inventory-backend:latest` & `:<git-sha>`
@@ -44,4 +44,4 @@ Pipeline ini menerapkan 6 lapis isolasi ketat:
 
 ## 3. Konfigurasi GitHub Repository & Environments
 
-Panduan detail nilai dan copy-paste template secret tersedia di **[`infrastructure/DEPLOY-SECRETS.md`](file:///c:/Users/PITCHA/Documents/Project/inventory_net/infrastructure/DEPLOY-SECRETS.md)**.
+Panduan detail nilai dan copy-paste template secret tersedia di **[`github_secrets_guide.md`](./github_secrets_guide.md)**.

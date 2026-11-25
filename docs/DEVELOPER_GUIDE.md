@@ -162,7 +162,7 @@ EF Core akan menghubungkan ke Oracle Database dan mengeksekusi perintah SQL `CRE
 - **Jika SUDAH terlanjur di-deploy ke Staging atau Production:**
   > ⚠️ **DILARANG keras memakai `dotnet ef migrations remove`!** Sistem backend dilindungi oleh *Orphaned Migration Guard* (`strict`), sehingga menghapus migration yang sudah tercatat di database server akan menggagalkan deployment.
   - **SOP Resmi (Forward Corrective Migration):** Revert kode fitur/entity, lalu buat migration koreksi baru (`dotnet ef migrations add Revert_NamaFitur`) tanpa menghapus file migration lama.
-  - Untuk skenario lanjutan (*escape hatch* `allow_once` / `prune_history` dan *worst-case restore*), baca **[`docs/deployment/migration_and_recovery_playbook.md`](file:///c:/Users/PITCHA/Documents/Project/inventory_net/docs/deployment/migration_and_recovery_playbook.md)**.
+  - Untuk skenario lanjutan (*escape hatch* `allow_once` / `prune_history` dan *worst-case restore*), baca **[`docs/deployment/migration_and_recovery_playbook.md`](./deployment/migration_and_recovery_playbook.md)**.
 
 ---
 

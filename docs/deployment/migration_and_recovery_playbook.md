@@ -33,7 +33,7 @@ Setiap workflow di `.github/workflows/` dilindungi oleh guard branch (`validate-
 ---
 
 ### B. Mekanisme Auto-Migration & Guard di Backend
-Saat container `be-net` start ([Program.cs](file:///c:/Users/PITCHA/Documents/Project/inventory_net/be-net/src/Inventory.Api/Program.cs) & [DbInitializer.cs](file:///c:/Users/PITCHA/Documents/Project/inventory_net/be-net/src/Inventory.Infrastructure/Data/DbInitializer.cs)):
+Saat container `be-net` start ([`Program.cs`](../../be-net/src/Inventory.Api/Program.cs) & [`DbInitializer.cs`](../../be-net/src/Inventory.Infrastructure/Data/DbInitializer.cs)):
 1. **Auto-Baselining DB Lama:** Jika Oracle DB sebelumnya terbuat dengan `EnsureCreatedAsync()` (tabel `m_user` sudah ada tetapi `__EFMigrationsHistory` belum ada), sistem otomatis membuat `__EFMigrationsHistory` dan mencatat migrasi baseline (`InitialCreate` & `AddAvatarUrlToUser`) tanpa error `ORA-00955`.
 2. **Orphaned Migration Guard:** Sebelum `MigrateAsync()` dieksekusi, backend membandingkan riwayat `__EFMigrationsHistory` di DB dengan daftar file migration di build kode terbaru.
 3. **Fail-Fast Startup:** Jika terjadi kegagalan `MigrationGuardException` (kebijakan `strict`), backend langsung **berhenti seketika** tanpa menunggu retry loop 72 detik dan tidak menjalankan web server—sehingga `verify-deployment.sh` otomatis menggagalkan deployment.
