@@ -219,10 +219,10 @@ fi
   ORACLE_PORT="${ORACLE_PORT}" \
   docker compose -f "${COMPOSE_FILE}" up -d oracle redis
 
-  # 2. Wait for Oracle DB to become healthy (maks 180s)
-  echo "[deploy] Memeriksa kesiapan Oracle DB (maks 180 detik)..."
+  # 2. Wait for Oracle DB to become healthy (maks 300s)
+  echo "[deploy] Memeriksa kesiapan Oracle DB (maks 300 detik)..."
   ORACLE_HEALTHY=false
-  for i in $(seq 1 90); do
+  for i in $(seq 1 150); do
     ORACLE_STATUS=$(docker inspect --format '{{.State.Health.Status}}' "${EXPECTED_ORACLE}" 2>/dev/null || echo "starting")
     if [ "${ORACLE_STATUS}" = "healthy" ]; then
       echo "[deploy] Oracle DB dalam status HEALTHY (detik ke-$((i * 2)))."
@@ -234,7 +234,7 @@ fi
       break
     fi
     if [ $((i % 5)) -eq 0 ]; then
-      echo "[deploy] Menunggu Oracle DB siap... ($((i * 2))/180 detik) [Status: ${ORACLE_STATUS}]"
+      echo "[deploy] Menunggu Oracle DB siap... ($((i * 2))/300 detik) [Status: ${ORACLE_STATUS}]"
     fi
     sleep 2
   done
