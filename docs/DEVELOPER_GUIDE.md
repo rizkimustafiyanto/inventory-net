@@ -150,15 +150,19 @@ dotnet ef database update -p src/Inventory.Infrastructure -s src/Inventory.Api
 EF Core akan menghubungkan ke Oracle Database dan mengeksekusi perintah SQL `CREATE TABLE "m_supplier" (...)`.
 
 #### 3. Membatalkan (Rollback) Migrasi jika Terjadi Kesalahan
-- **Jika belum diupdate ke database**:
+- **Jika HANYA ada di lokal dan BELUM pernah di-deploy ke Staging/Production**:
   ```powershell
+  # Jika belum dieksekusi ke DB lokal:
   dotnet ef migrations remove -p src/Inventory.Infrastructure -s src/Inventory.Api
-  ```
-- **Jika sudah terlanjur diupdate ke database**, kembalikan database ke migrasi sebelumnya terlebih dahulu:
-  ```powershell
+
+  # Jika sudah terlanjur dieksekusi ke DB Docker lokal saja:
   dotnet ef database update <NamaMigrasiSebelumnya> -p src/Inventory.Infrastructure -s src/Inventory.Api
   dotnet ef migrations remove -p src/Inventory.Infrastructure -s src/Inventory.Api
   ```
+- **Jika SUDAH terlanjur di-deploy ke Staging atau Production:**
+  > ⚠️ **DILARANG keras memakai `dotnet ef migrations remove`!** Sistem backend dilindungi oleh *Orphaned Migration Guard* (`strict`), sehingga menghapus migration yang sudah tercatat di database server akan menggagalkan deployment.
+  - **SOP Resmi (Forward Corrective Migration):** Revert kode fitur/entity, lalu buat migration koreksi baru (`dotnet ef migrations add Revert_NamaFitur`) tanpa menghapus file migration lama.
+  - Untuk skenario lanjutan (*escape hatch* `allow_once` / `prune_history` dan *worst-case restore*), baca **[`docs/deployment/migration_and_recovery_playbook.md`](file:///c:/Users/PITCHA/Documents/Project/inventory_net/docs/deployment/migration_and_recovery_playbook.md)**.
 
 ---
 
