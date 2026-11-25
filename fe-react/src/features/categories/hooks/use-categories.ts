@@ -43,7 +43,9 @@ export function useCategories() {
   }, [page, pageSize, debouncedSearch])
 
   useEffect(() => {
-    loadCategories()
+    queueMicrotask(() => {
+      void loadCategories()
+    })
   }, [loadCategories])
 
   const handleSearchChange = (value: string) => {

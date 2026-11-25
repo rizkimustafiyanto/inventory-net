@@ -73,11 +73,15 @@ export function useStockReports() {
   }, [subscribeStockMovement, loadKpis, loadPagedReports])
 
   useEffect(() => {
-    loadKpis()
+    queueMicrotask(() => {
+      void loadKpis()
+    })
   }, [loadKpis])
 
   useEffect(() => {
-    loadPagedReports()
+    queueMicrotask(() => {
+      void loadPagedReports()
+    })
   }, [loadPagedReports])
 
   // Summary Metrics (dihitung dari seluruh snapshot server)

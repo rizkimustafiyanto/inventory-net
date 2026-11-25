@@ -1,15 +1,10 @@
 import Link from "next/link"
 import {
   ArrowRight,
-  ShieldCheck,
   Layers,
   BarChart3,
-  Database,
   Server,
-  FileSpreadsheet,
   CheckCircle2,
-  Lock,
-  PackageCheck,
   TrendingUp,
 } from "lucide-react"
 import { Button, Card } from "@/components/ui"

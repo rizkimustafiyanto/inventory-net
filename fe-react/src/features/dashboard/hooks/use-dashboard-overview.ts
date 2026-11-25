@@ -34,7 +34,9 @@ export function useDashboardOverview() {
   }, [])
 
   useEffect(() => {
-    fetchData()
+    queueMicrotask(() => {
+      void fetchData()
+    })
   }, [fetchData])
 
   // Real-time synchronization for Dashboard KPIs and recent movements

@@ -28,7 +28,7 @@ export default function LoginPage() {
     if (token || isAuthenticated) {
       router.replace("/dashboard")
     } else {
-      setCheckingAuth(false)
+      queueMicrotask(() => setCheckingAuth(false))
     }
   }, [router, initAuth, isAuthenticated])
 

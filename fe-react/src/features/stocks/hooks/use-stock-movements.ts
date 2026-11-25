@@ -115,11 +115,15 @@ export function useStockMovements() {
   }, [subscribeStockMovement, page, pageSize, filterProductId, filterType, loadProducts])
 
   useEffect(() => {
-    loadProducts()
+    queueMicrotask(() => {
+      void loadProducts()
+    })
   }, [loadProducts])
 
   useEffect(() => {
-    loadMovements()
+    queueMicrotask(() => {
+      void loadMovements()
+    })
   }, [loadMovements])
 
   const handleSearchChange = (value: string) => {

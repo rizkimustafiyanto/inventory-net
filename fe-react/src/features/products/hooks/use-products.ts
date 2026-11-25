@@ -87,11 +87,15 @@ export function useProducts() {
   }, [subscribeStockUpdate])
 
   useEffect(() => {
-    loadCategories()
+    queueMicrotask(() => {
+      void loadCategories()
+    })
   }, [loadCategories])
 
   useEffect(() => {
-    loadProducts()
+    queueMicrotask(() => {
+      void loadProducts()
+    })
   }, [loadProducts])
 
   const handleSearchChange = (value: string) => {

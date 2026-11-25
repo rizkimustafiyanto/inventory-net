@@ -49,7 +49,9 @@ export function useUsers() {
   }, [page, pageSize, debouncedSearch, roleFilter, statusFilter])
 
   useEffect(() => {
-    loadUsers()
+    queueMicrotask(() => {
+      void loadUsers()
+    })
   }, [loadUsers])
 
   const { subscribeUserAvatarUpdated } = useInventorySocket()

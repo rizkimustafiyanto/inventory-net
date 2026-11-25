@@ -29,9 +29,9 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const { user, role, updateUser } = useAuthStore()
 
   const [activeTab, setActiveTab] = useState<"profile" | "password" | "security">("profile")
-  const [fullName, setFullName] = useState("")
-  const [email, setEmail] = useState("")
-  const [avatar, setAvatar] = useState<string | null>(null)
+  const [fullName, setFullName] = useState(user?.fullName || "")
+  const [email, setEmail] = useState(user?.email || "")
+  const [avatar, setAvatar] = useState<string | null>(user?.avatarUrl || user?.avatar || null)
   const [savingProfile, setSavingProfile] = useState(false)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
@@ -41,13 +41,15 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [savingPassword, setSavingPassword] = useState(false)
 
-  useEffect(() => {
+  const [prevUser, setPrevUser] = useState(user)
+  if (user !== prevUser) {
+    setPrevUser(user)
     if (user) {
       setFullName(user.fullName || "")
       setEmail(user.email || "")
       setAvatar(user.avatarUrl || user.avatar || null)
     }
-  }, [user])
+  }
 
   useEffect(() => {
     if (isOpen) {

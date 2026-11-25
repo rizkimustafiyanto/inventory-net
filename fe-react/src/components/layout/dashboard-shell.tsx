@@ -155,9 +155,11 @@ export function DashboardShell({ title, children }: DashboardShellProps) {
   }, [isAuthenticated, router])
 
   // Automatically close mobile menu when navigating to another route
-  useEffect(() => {
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
     setIsMobileMenuOpen(false)
-  }, [pathname])
+  }
 
   // Prevent background scrolling when mobile menu drawer is open
   useEffect(() => {
