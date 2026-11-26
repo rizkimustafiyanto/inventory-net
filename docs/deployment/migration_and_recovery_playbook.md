@@ -155,11 +155,43 @@ Misalkan developer terlanjur mengirim migration yang salah mengubah tipe kolom, 
    - Buka GitHub Actions $\rightarrow$ **`Database Restore`**.
    - Pilih **Use workflow from**: **`main`** *(wajib dari `main`, akan ditolak jika dari branch lain)*.
    - **environment**: **`production`**
-   - **backup_file_name**: isi nama file snapshot pre-deploy (`backup_production_YYYYMMDD_HHMMSS.dmp.gz`).
+   - **restore_source**: pilih **`vps`** *(untuk file yang sudah ada di server)* atau **`url`** *(untuk download langsung dari URL)*.
+   - **backup_file_name** *(jika `vps`)*: isi nama file snapshot pre-deploy (`backup_production_YYYYMMDD_HHMMSS.dmp.gz`), **atau** **backup_url** *(jika `url`)*: isi direct download URL file `.dmp` / `.dmp.gz`.
    - **confirm_text**: ketik persis **`RESTORE-CONFIRM`**.
    - *Hasil:* Seluruh skema tabel, data bisnis, dan tabel `"__EFMigrationsHistory"` kembali persis ke kondisi 1 menit sebelum deploy bermasalah!
-4. *(Jika ada perubahan file upload media yang ikut bermasalah, jalankan juga `Uploads Volume Restore` dari branch `main` dengan file backup `uploads_production_...tar.gz` terkait).*
+4. *(Jika ada perubahan file upload media yang ikut bermasalah, jalankan juga `Uploads Volume Restore` dari branch `main` dengan `restore_source = vps` atau `url` untuk file `uploads_production_...tar.gz` terkait).*
 5. **Deploy ulang commit kode stabil** lewat **`Deploy (Production VPS)`** dari branch `main`. Karena `__EFMigrationsHistory` sudah ikut ter-restore ke titik stabil, mode `strict` akan langsung berjalan mulus!
+
+---
+
+### 4.2 Syarat Format & Struktur Isi File Backup (Wajib Diperhatikan untuk Restore)
+
+Jika Anda melakukan restore memakai file dari URL eksternal (`restore_source = url`) atau arsip yang dibuat/di-repack secara manual, pastikan struktur dan formatnya memenuhi ketentuan berikut:
+
+#### A. File Uploads Volume (`.tar.gz`) — Untuk `Uploads Volume Restore`
+Skrip [`restore-uploads.sh`](../../scripts/backup/restore-uploads.sh) mengekstrak arsip langsung ke direktori `/app` di dalam kontainer backend (`tar -xzf - -C /app`).
+- **Struktur folder di dalam `.tar.gz` WAJIB diawali folder root `uploads/`**:
+  ```text
+  uploads/
+  ├── avatars/
+  │   └── user_1.webp
+  └── ...
+  ```
+- **Contoh yang BENAR saat membuat arsip manual:**
+  ```bash
+  # Jalankan dari parent folder yang berisi folder uploads/
+  tar -czf uploads_manual.tar.gz uploads/
+  ```
+- **Contoh yang SALAH (jangan dilakukan):**
+  - Mengompres *isi* di dalam folder `uploads` tanpa folder induk `uploads/` (misal `cd uploads && tar -czf salah.tar.gz .`) $\rightarrow$ file akan terekstrak ke `/app/avatars/` dan **tidak terbaca** oleh aplikasi di `/app/uploads/`.
+  - Mengompres path lengkap dari root (`/app/uploads/...`) $\rightarrow$ file akan terekstrak ke `/app/app/uploads/`.
+- Jika memakai hasil bawaan dari workflow **`Uploads Volume Backup`** (dari server VPS maupun yang dikirim ke Telegram), strukturnya sudah otomatis benar (`uploads/...`).
+
+#### B. File Database Oracle (`.dmp` / `.dmp.gz`) — Untuk `Database Restore`
+- File harus berupa **Oracle Data Pump Dump (`expdp`)** dari skema `inventory_user` (bukan file teks `.sql`), baik dalam bentuk terkompresi `.dmp.gz` (`gzip`) maupun `.dmp` mentah.
+- Jika memakai **`restore_source = url`**:
+  - Pastikan URL adalah **Direct Download Link** (mengunduh file biner langsung, bukan halaman HTML preview seperti link `/view` Google Drive biasa).
+  - Untuk target `production`, URL tidak boleh mengandung kata `staging` (akan diblokir oleh *Safety Guard* anti-staging-ke-prod).
 
 ---
 
