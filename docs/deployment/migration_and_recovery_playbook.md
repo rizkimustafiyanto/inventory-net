@@ -190,7 +190,8 @@ Skrip [`restore-uploads.sh`](../../scripts/backup/restore-uploads.sh) mengekstra
 #### B. File Database Oracle (`.dmp` / `.dmp.gz`) — Untuk `Database Restore`
 - File harus berupa **Oracle Data Pump Dump (`expdp`)** dari skema `inventory_user` (bukan file teks `.sql`), baik dalam bentuk terkompresi `.dmp.gz` (`gzip`) maupun `.dmp` mentah.
 - Jika memakai **`restore_source = url`**:
-  - Pastikan URL adalah **Direct Download Link** (mengunduh file biner langsung, bukan halaman HTML preview seperti link `/view` Google Drive biasa).
+  - Workflow **otomatis mengonversi link Google Drive** (`/file/d/<ID>/view?...`) menjadi direct download URL—cukup pastikan sharing file Google Drive diset ke **"Anyone with the link"** (*Siapa saja yang memiliki link*).
+  - Untuk penyedia lain, pastikan URL mengunduh file biner langsung (bukan halaman HTML preview).
   - Untuk target `production`, URL tidak boleh mengandung kata `staging` (akan diblokir oleh *Safety Guard* anti-staging-ke-prod).
 
 ---

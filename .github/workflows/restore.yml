@@ -169,10 +169,27 @@ jobs:
               exit 1
             fi
 
+            DOWNLOAD_URL="${BACKUP_URL}"
+            if [[ "${BACKUP_URL}" =~ https?://drive\.google\.com/file/d/([^/?#]+) ]]; then
+              GDRIVE_ID="${BASH_REMATCH[1]}"
+              DOWNLOAD_URL="https://drive.usercontent.google.com/download?id=${GDRIVE_ID}&export=download&confirm=t"
+              echo "[restore] Google Drive link terdeteksi (ID: ${GDRIVE_ID}), mengonversi ke direct download URL..."
+            elif [[ "${BACKUP_URL}" =~ https?://drive\.google\.com/(open|uc)\?.*id=([^&#]+) ]]; then
+              GDRIVE_ID="${BASH_REMATCH[2]}"
+              DOWNLOAD_URL="https://drive.usercontent.google.com/download?id=${GDRIVE_ID}&export=download&confirm=t"
+              echo "[restore] Google Drive link terdeteksi (ID: ${GDRIVE_ID}), mengonversi ke direct download URL..."
+            fi
+
             echo "[restore] Downloading backup file from URL..."
-            curl -fSL -o /tmp/downloaded_backup "${BACKUP_URL}"
+            curl -fSL -b /tmp/gdrive_cookies.txt -c /tmp/gdrive_cookies.txt -o /tmp/downloaded_backup "${DOWNLOAD_URL}"
+            rm -f /tmp/gdrive_cookies.txt
             if [ ! -s /tmp/downloaded_backup ]; then
               echo "::error::File hasil download dari URL kosong!"
+              exit 1
+            fi
+
+            if head -c 512 /tmp/downloaded_backup | tr -d '\0' | grep -qiE '<!doctype html|<html'; then
+              echo "::error::URL mengembalikan halaman HTML, bukan file backup Oracle (.dmp/.dmp.gz)! Jika memakai Google Drive, pastikan permission file diset ke 'Anyone with the link' (Siapa saja yang memiliki link), atau gunakan direct download URL."
               exit 1
             fi
 
