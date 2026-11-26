@@ -11,9 +11,20 @@ on:
         options:
           - 'staging'
           - 'production'
-      backup_file_name:
-        description: 'Nama file backup uploads di server (contoh: uploads_production_20261124_020015.tar.gz)'
+      restore_source:
+        description: 'Sumber file backup (vps = dari folder server, url = download dari URL langsung)'
         required: true
+        default: 'vps'
+        type: choice
+        options:
+          - 'vps'
+          - 'url'
+      backup_file_name:
+        description: '[Jika source=vps] Nama file backup uploads di server (contoh: uploads_production_20261124_020015.tar.gz)'
+        required: false
+      backup_url:
+        description: '[Jika source=url] Direct download URL file backup uploads (.tar.gz)'
+        required: false
       confirm_text:
         description: 'Ketik "RESTORE-CONFIRM" untuk verifikasi eksekusi restore'
         required: true
@@ -62,6 +73,32 @@ jobs:
           echo "[guard] Uploads restore verified: branch '${CURRENT_REF}' -> environment '${TARGET_ENV}'."
           echo "target_env=${TARGET_ENV}" >> "$GITHUB_OUTPUT"
 
+      - name: Verify Restore Source Inputs
+        env:
+          RESTORE_SOURCE: ${{ github.event.inputs.restore_source }}
+          BACKUP_FILE_NAME: ${{ github.event.inputs.backup_file_name }}
+          BACKUP_URL: ${{ github.event.inputs.backup_url }}
+        run: |
+          set -euo pipefail
+          if [ "${RESTORE_SOURCE}" = "vps" ]; then
+            if [ -z "${BACKUP_FILE_NAME:-}" ]; then
+              echo "::error::Input 'backup_file_name' wajib diisi ketika restore_source = 'vps'."
+              exit 1
+            fi
+          elif [ "${RESTORE_SOURCE}" = "url" ]; then
+            if [ -z "${BACKUP_URL:-}" ]; then
+              echo "::error::Input 'backup_url' wajib diisi ketika restore_source = 'url'."
+              exit 1
+            fi
+            if [[ ! "${BACKUP_URL}" =~ ^https?:// ]]; then
+              echo "::error::Input 'backup_url' harus berupa URL http:// atau https:// yang valid."
+              exit 1
+            fi
+          else
+            echo "::error::Input 'restore_source' tidak valid: ${RESTORE_SOURCE}"
+            exit 1
+          fi
+
   restore:
     name: Execute Uploads Restore (${{ needs.validate-guard.outputs.target_env }})
     needs: validate-guard
@@ -106,10 +143,12 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PATH: ${{ secrets.VPS_PATH }}
           TARGET_ENV: ${{ needs.validate-guard.outputs.target_env }}
+          RESTORE_SOURCE: ${{ github.event.inputs.restore_source }}
           BACKUP_FILE_NAME: ${{ github.event.inputs.backup_file_name }}
+          BACKUP_URL: ${{ github.event.inputs.backup_url }}
         run: |
           set -euo pipefail
-          echo "[restore-uploads] Connecting to VPS ${VPS_HOST}..."
+          echo "[restore-uploads] Connecting to VPS ${VPS_HOST} (source: ${RESTORE_SOURCE})..."
 
           if [ "${TARGET_ENV}" = "staging" ]; then
             CONTAINER_NAME="inventory-staging-backend"
@@ -123,11 +162,40 @@ jobs:
              if [ ! -w '${VPS_PATH}' ]; then sudo chown -R '${VPS_USER}:${VPS_USER}' '${VPS_PATH}'; fi && \
              mkdir -p '${VPS_PATH}/backups'"
 
+          EFFECTIVE_BACKUP_NAME="${BACKUP_FILE_NAME:-}"
+          if [ "${RESTORE_SOURCE}" = "url" ]; then
+            if [ "${TARGET_ENV}" = "production" ] && [[ "${BACKUP_URL}" == *"staging"* ]]; then
+              echo "::error::[SAFETY GUARD] DILARANG me-restore URL uploads Staging ke container Production!"
+              exit 1
+            fi
+
+            echo "[restore-uploads] Downloading uploads archive from URL..."
+            curl -fSL -o /tmp/downloaded_uploads "${BACKUP_URL}"
+            if [ ! -s /tmp/downloaded_uploads ]; then
+              echo "::error::File hasil download dari URL kosong!"
+              exit 1
+            fi
+
+            if ! tar -tzf /tmp/downloaded_uploads >/dev/null 2>&1; then
+              echo "::error::File yang di-download dari URL bukan arsip .tar.gz yang valid!"
+              exit 1
+            fi
+
+            TS=$(date +"%Y%m%d_%H%M%S")
+            EFFECTIVE_BACKUP_NAME="uploads_url_${TARGET_ENV}_${TS}.tar.gz"
+
+            echo "[restore-uploads] Uploading downloaded archive (${EFFECTIVE_BACKUP_NAME}) to VPS..."
+            scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 /tmp/downloaded_uploads "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/backups/${EFFECTIVE_BACKUP_NAME}"
+            rm -f /tmp/downloaded_uploads
+          fi
+
+          echo "EFFECTIVE_BACKUP_NAME=${EFFECTIVE_BACKUP_NAME}" >> "$GITHUB_ENV"
+
           # Upload restore script ke VPS
           scp -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 scripts/backup/restore-uploads.sh "${VPS_USER}@${VPS_HOST}:${VPS_PATH}/restore-uploads.sh"
 
           # Eksekusi restore
-          FULL_BACKUP_PATH="${VPS_PATH}/backups/${BACKUP_FILE_NAME}"
+          FULL_BACKUP_PATH="${VPS_PATH}/backups/${EFFECTIVE_BACKUP_NAME}"
           ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 "${VPS_USER}@${VPS_HOST}" \
             "chmod +x ${VPS_PATH}/restore-uploads.sh && \
              CONTAINER_NAME=${CONTAINER_NAME} \
@@ -139,7 +207,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TARGET_ENV: ${{ needs.validate-guard.outputs.target_env }}
-          BACKUP_FILE_NAME: ${{ github.event.inputs.backup_file_name }}
+          RESTORE_SOURCE: ${{ github.event.inputs.restore_source }}
+          BACKUP_FILE_NAME: ${{ env.EFFECTIVE_BACKUP_NAME || github.event.inputs.backup_file_name }}
         run: |
           set -euo pipefail
 
@@ -150,7 +219,7 @@ jobs:
 
           RESTORE_TIME=$(TZ="Asia/Jakarta" date +"%Y-%m-%d %H:%M:%S WIB")
 
-          MESSAGE="♻️ <b>[UPLOADS VOLUME RESTORE] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Target Env :</b> <code>${TARGET_ENV}</code>%0A📅 <b>Waktu     :</b> <code>${RESTORE_TIME}</code>%0A📂 <b>Source File:</b> <code>${BACKUP_FILE_NAME}</code>%0A👤 <b>Actor     :</b> ${{ github.actor }}%0A✅ <b>Status    :</b> Volume Uploads Berhasil Di-restore!%0A━━━━━━━━━━━━━━━━━━━━"
+          MESSAGE="♻️ <b>[UPLOADS VOLUME RESTORE] InventoryNet Core</b>%0A━━━━━━━━━━━━━━━━━━━━%0A🌍 <b>Target Env :</b> <code>${TARGET_ENV}</code>%0A📅 <b>Waktu     :</b> <code>${RESTORE_TIME}</code>%0A📥 <b>Source    :</b> <code>${RESTORE_SOURCE}</code>%0A📂 <b>File      :</b> <code>${BACKUP_FILE_NAME}</code>%0A👤 <b>Actor     :</b> ${{ github.actor }}%0A✅ <b>Status    :</b> Volume Uploads Berhasil Di-restore!%0A━━━━━━━━━━━━━━━━━━━━"
 
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d "chat_id=${TELEGRAM_CHAT_ID}" \
